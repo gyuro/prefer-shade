@@ -120,17 +120,19 @@ function LocationField({
   }, [onChange, resolvedRef]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!open) return;
+    if (!open || suggestions.length === 0) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setActiveIdx((i) => Math.min(i + 1, suggestions.length - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setActiveIdx((i) => Math.max(i - 1, -1));
-    } else if (e.key === 'Enter' && activeIdx >= 0) {
+    } else if (e.key === 'Enter') {
+      // Always block form submission while dropdown is open
       e.preventDefault();
-      pick(suggestions[activeIdx]);
+      pick(suggestions[activeIdx >= 0 ? activeIdx : 0]);
     } else if (e.key === 'Escape') {
+      e.preventDefault();
       setOpen(false);
     }
   };
