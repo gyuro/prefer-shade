@@ -17,7 +17,6 @@ export default function ShadeApp() {
   const [searchOrigin, setSearchOrigin] = useState<LatLng | null>(null);
   const [searchDest, setSearchDest] = useState<LatLng | null>(null);
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
   const center = location ?? DEFAULT_CENTER;
 
   const handleSearch = useCallback(
@@ -51,7 +50,6 @@ export default function ShadeApp() {
   return (
     <div className="relative w-full h-screen">
       <MapApp
-        apiKey={apiKey}
         shadows={routeSearch.shadows}
         fastestRoute={routeSearch.fastestRoute}
         shadedRoute={routeSearch.shadedRoute}

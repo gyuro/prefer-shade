@@ -1,40 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const ROUTES_API_URL = 'https://routes.googleapis.com/directions/v2:computeRoutes';
+// OSRM public demo — free, no API key. For high-volume production use,
+// self-host OSRM or switch to OpenRouteService free tier.
+const OSRM_BASE = 'https://router.project-osrm.org/route/v1/foot';
 
-const FIELD_MASK = [
-  'routes.duration',
-  'routes.distanceMeters',
-  'routes.polyline.encodedPolyline',
-  'routes.routeLabels',
-].join(',');
+export const maxDuration = 20;
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.GOOGLE_MAPS_ROUTES_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: { message: 'Routes API key not configured' } }, { status: 500 });
-  }
-
-  const clientBody = await req.json();
-
-  const requestBody = {
-    ...clientBody,
-    travelMode: 'WALK',
-    routingPreference: 'ROUTING_PREFERENCE_UNSPECIFIED',
-    languageCode: 'en-US',
-    units: 'METRIC',
+  const { origin, destination, intermediates } = await req.json() as {
+    origin: { lat: number; lng: number };
+    destination: { lat: number; lng: number };
+    intermediates?: { lat: number; lng: number }[];
   };
 
-  const response = await fetch(ROUTES_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Goog-Api-Key': apiKey,
-      'X-Goog-FieldMask': FIELD_MASK,
-    },
-    body: JSON.stringify(requestBody),
+  // OSRM coords format: lng,lat — semicolon-separated
+  const waypoints = [origin, ...(intermediates ?? []), destination];
+  const coords = waypoints.map((p) => `${p.lng},${p.lat}`).join(';');
+  const hasIntermediates = (intermediates ?? []).length > 0;
+
+  const params = new URLSearchParams({
+    overview: 'full',
+    geometries: 'polyline', // precision 5 — matches @googlemaps/polyline-codec default
+    alternatives: hasIntermediates ? 'false' : 'true',
   });
 
-  const data = await response.json();
-  return NextResponse.json(data, { status: response.status });
+  try {
+    const res = await fetch(`${OSRM_BASE}/${coords}?${params}`, {
+      signal: AbortSignal.timeout(15_000),
+    });
+
+    if (!res.ok) {
+      return NextResponse.json({ error: `OSRM error: ${res.status}` }, { status: 502 });
+    }
+
+    const data = await res.json();
+    return NextResponse.json(data);
+  } catch (err) {
+    return NextResponse.json({ error: String(err) }, { status: 502 });
+  }
 }

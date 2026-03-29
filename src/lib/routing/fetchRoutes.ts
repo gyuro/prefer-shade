@@ -9,28 +9,21 @@ export interface FetchRoutesOptions {
   intermediates?: LatLng[];
 }
 
-interface GoogleRoutesApiResponse {
+interface OsrmResponse {
+  code: string; // "Ok" on success
   routes?: Array<{
-    polyline: { encodedPolyline: string };
-    duration: string; // e.g. "300s"
-    distanceMeters: number;
-    routeLabels?: string[];
+    geometry: string;  // encoded polyline, precision 5
+    duration: number;  // seconds (float)
+    distance: number;  // meters (float)
   }>;
-  error?: { message: string };
+  message?: string;
 }
 
 export async function fetchRoutes(options: FetchRoutesOptions): Promise<RouteCandidate[]> {
   const body = {
-    origin: { location: { latLng: { latitude: options.origin.lat, longitude: options.origin.lng } } },
-    destination: {
-      location: {
-        latLng: { latitude: options.destination.lat, longitude: options.destination.lng },
-      },
-    },
-    intermediates: (options.intermediates ?? []).map((wp) => ({
-      location: { latLng: { latitude: wp.lat, longitude: wp.lng } },
-    })),
-    computeAlternativeRoutes: (options.intermediates ?? []).length === 0,
+    origin: options.origin,
+    destination: options.destination,
+    intermediates: options.intermediates ?? [],
   };
 
   const response = await fetch('/api/routes', {
@@ -43,23 +36,22 @@ export async function fetchRoutes(options: FetchRoutesOptions): Promise<RouteCan
     throw new Error(`Routes API error: ${response.status}`);
   }
 
-  const data: GoogleRoutesApiResponse = await response.json();
+  const data: OsrmResponse = await response.json();
 
-  if (data.error) {
-    throw new Error(data.error.message);
+  if (data.code !== 'Ok') {
+    throw new Error(data.message ?? 'Routing failed — no route found');
   }
 
   return (data.routes ?? []).map((r, i) => ({
-    encodedPolyline: r.polyline.encodedPolyline,
-    durationSeconds: parseInt(r.duration ?? '0', 10),
-    distanceMeters: r.distanceMeters,
+    encodedPolyline: r.geometry,
+    durationSeconds: Math.round(r.duration),
+    distanceMeters: Math.round(r.distance),
     label: i === 0 ? 'FASTEST' : 'ALTERNATE',
   }));
 }
 
-/** Decode a Google-encoded polyline into a GeoJSON LineString */
+/** Decode a polyline (precision 5) into a GeoJSON LineString */
 export function decodedPolylineToLineString(encoded: string): Feature<LineString> {
-  const latLngs = decode(encoded, 5);
-  const coords = latLngs.map(([lat, lng]) => [lng, lat]); // GeoJSON: [lng, lat]
+  const coords = decode(encoded, 5).map(([lat, lng]) => [lng, lat]); // GeoJSON: [lng, lat]
   return lineString(coords);
 }

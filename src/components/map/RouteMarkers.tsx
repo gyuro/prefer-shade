@@ -1,6 +1,6 @@
 'use client';
 
-import { AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
+import { Marker } from 'react-map-gl/maplibre';
 import type { LatLng } from '@/types/route';
 
 interface Props {
@@ -12,14 +12,25 @@ export function RouteMarkers({ origin, destination }: Props) {
   return (
     <>
       {origin && (
-        <AdvancedMarker position={origin} title="Your location">
-          <Pin background="#22c55e" borderColor="#15803d" glyphColor="#fff" scale={1.1} />
-        </AdvancedMarker>
+        <Marker longitude={origin.lng} latitude={origin.lat} anchor="center">
+          <div style={{
+            width: 16, height: 16,
+            background: '#22c55e', border: '3px solid #15803d',
+            borderRadius: '50%', boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+          }} />
+        </Marker>
       )}
       {destination && (
-        <AdvancedMarker position={destination} title="Destination">
-          <Pin background="#ef4444" borderColor="#b91c1c" glyphColor="#fff" scale={1.1} />
-        </AdvancedMarker>
+        <Marker longitude={destination.lng} latitude={destination.lat} anchor="bottom">
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div style={{
+              width: 16, height: 16,
+              background: '#ef4444', border: '3px solid #b91c1c',
+              borderRadius: '50%', boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+            }} />
+            <div style={{ width: 2, height: 10, background: '#b91c1c' }} />
+          </div>
+        </Marker>
       )}
     </>
   );

@@ -1,13 +1,16 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { Map, useMap } from '@vis.gl/react-google-maps';
+import { useEffect, useRef, useMemo } from 'react';
+import Map, { useMap } from 'react-map-gl/maplibre';
 import { decode } from '@googlemaps/polyline-codec';
 import { ShadowOverlay } from './ShadowOverlay';
 import { RoutePolyline } from './RoutePolyline';
 import { RouteMarkers } from './RouteMarkers';
 import type { Feature, Polygon } from 'geojson';
 import type { LatLng, ScoredRoute } from '@/types/route';
+
+// Free vector tile style — no API key required
+const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
 interface MapContentProps {
   shadows: Feature<Polygon>[];
@@ -18,44 +21,37 @@ interface MapContentProps {
   destination: LatLng | null;
 }
 
-/** Inner component — has access to useMap() because it's rendered inside <Map> */
-function MapContent({
-  shadows,
-  fastestRoute,
-  shadedRoute,
-  selectedRoute,
-  origin,
-  destination,
-}: MapContentProps) {
-  const map = useMap();
-  // Track which polyline we last fitted — only refit when a new route search completes
+function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin, destination }: MapContentProps) {
+  const { current: map } = useMap();
   const fittedPolylineRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!map || !fastestRoute) return;
-
-    // Don't refit just because the user toggled between route cards
     if (fastestRoute.encodedPolyline === fittedPolylineRef.current) return;
     fittedPolylineRef.current = fastestRoute.encodedPolyline;
 
-    // Include every point from ALL returned routes so both are visible
-    const bounds = new google.maps.LatLngBounds();
+    const lngs: number[] = [];
+    const lats: number[] = [];
+
     const routes = [fastestRoute, shadedRoute].filter(Boolean) as ScoredRoute[];
     for (const route of routes) {
       for (const [lat, lng] of decode(route.encodedPolyline, 5)) {
-        bounds.extend({ lat, lng });
+        lats.push(lat);
+        lngs.push(lng);
       }
     }
-    if (origin) bounds.extend(origin);
-    if (destination) bounds.extend(destination);
+    if (origin) { lngs.push(origin.lng); lats.push(origin.lat); }
+    if (destination) { lngs.push(destination.lng); lats.push(destination.lat); }
+    if (lngs.length === 0) return;
 
-    // left padding reserves space for the 320px sidebar + 16px gap
-    map.fitBounds(bounds, { top: 80, bottom: 80, left: 380, right: 80 });
+    map.fitBounds(
+      [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+      { padding: { top: 80, bottom: 80, left: 380, right: 80 }, duration: 600 }
+    );
   }, [map, fastestRoute, shadedRoute, origin, destination]);
 
   const hasBothDistinct =
-    fastestRoute &&
-    shadedRoute &&
+    fastestRoute && shadedRoute &&
     fastestRoute.encodedPolyline !== shadedRoute.encodedPolyline;
 
   return (
@@ -64,12 +60,12 @@ function MapContent({
 
       {hasBothDistinct ? (
         <>
-          <RoutePolyline route={fastestRoute!} isSelected={selectedRoute === 'fastest'} />
-          <RoutePolyline route={shadedRoute!} isSelected={selectedRoute === 'shaded'} />
+          <RoutePolyline route={fastestRoute!} isSelected={selectedRoute === 'fastest'} zIndex={selectedRoute === 'fastest' ? 2 : 1} />
+          <RoutePolyline route={shadedRoute!} isSelected={selectedRoute === 'shaded'} zIndex={selectedRoute === 'shaded' ? 2 : 1} />
         </>
       ) : (
         (shadedRoute ?? fastestRoute) && (
-          <RoutePolyline route={(shadedRoute ?? fastestRoute)!} isSelected />
+          <RoutePolyline route={(shadedRoute ?? fastestRoute)!} isSelected zIndex={2} />
         )
       )}
 
@@ -85,14 +81,9 @@ interface Props extends MapContentProps {
 export function MapContainer({ center, ...contentProps }: Props) {
   return (
     <Map
-      mapId="shade-routing-map"
-      defaultCenter={center}
-      defaultZoom={14}
-      gestureHandling="greedy"
-      disableDefaultUI={false}
-      mapTypeControl={false}
-      fullscreenControl={false}
-      streetViewControl={false}
+      id="shade-map"
+      mapStyle={MAP_STYLE}
+      initialViewState={{ longitude: center.lng, latitude: center.lat, zoom: 14 }}
       style={{ width: '100%', height: '100%' }}
     >
       <MapContent {...contentProps} />
