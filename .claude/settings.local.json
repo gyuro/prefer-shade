@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:visgl.github.io)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:developers.google.com)",
+      "WebFetch(domain:wiki.openstreetmap.org)",
+      "WebFetch(domain:turfjs.org)",
+      "Bash(mkdir -p ~/Testbeds/shade-plugin)",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-git)",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-git --no-react-compiler)",
+      "Bash(npm init:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx next:*)",
+      "Bash(mv next.config.ts next.config.mjs)",
+      "Bash(sed -i '' 's/import type { NextConfig } from .next.;//' next.config.mjs)",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(curl -s http://localhost:3000/api/health)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
