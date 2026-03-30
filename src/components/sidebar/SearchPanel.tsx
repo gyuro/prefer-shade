@@ -47,6 +47,8 @@ interface Props {
   onSearch: (origin: string | null, destination: string | null, time: Date, options: RouteOptions) => void;
   onReset: () => void;
   hasResult: boolean;
+  /** When true, hides date/time and routing options to save vertical space on mobile */
+  compact?: boolean;
 }
 
 interface FieldProps {
@@ -223,7 +225,7 @@ const PRESET_META: Record<RoutePreset, { label: string; sub: string }> = {
   shade:    { label: 'Max Shade', sub: 'Up to +35%' },
 };
 
-export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasResult }: Props) {
+export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasResult, compact = false }: Props) {
   const [origin, setOrigin] = useState('');
   const [dest, setDest] = useState('');
   const [dateTimeStr, setDateTimeStr] = useState(() => toDateTimeLocal(new Date()));
@@ -302,8 +304,8 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
         inputRef={destRef}
       />
 
-      {/* Date & time picker */}
-      <div className="flex flex-col gap-1 mt-1">
+      {/* Date & time + routing options — hidden on mobile when collapsed */}
+      {!compact && <div className="flex flex-col gap-1 mt-1">
         <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
           Date &amp; Time
         </label>
@@ -325,51 +327,51 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
             Now
           </button>
         </div>
-      </div>
+      </div>}
 
-      {/* Routing options */}
-      <div className="flex flex-col gap-2 mt-1">
-        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-          Shade Priority
-        </label>
-        <div className="grid grid-cols-3 gap-1">
-          {(Object.keys(ROUTE_PRESETS) as RoutePreset[]).map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => handlePreset(p)}
-              disabled={isLoading}
-              className={`flex flex-col items-center py-2 px-1 rounded-lg border text-xs transition-colors ${
-                preset === p
-                  ? 'border-green-500 bg-green-50 text-green-700 font-semibold'
-                  : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
-              }`}
-            >
-              <span>{p === 'speed' ? '⚡' : p === 'balanced' ? '⚖️' : '🌿'}</span>
-              <span className="mt-0.5">{PRESET_META[p].label}</span>
-              <span className="text-gray-400 font-normal">{PRESET_META[p].sub}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Max detour fine-tune — only show for balanced/shade presets */}
-        {preset !== 'speed' && (
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-500 whitespace-nowrap">Max detour</label>
-            <input
-              type="range"
-              min={5}
-              max={50}
-              step={5}
-              value={maxDetour}
-              onChange={(e) => setMaxDetour(Number(e.target.value))}
-              disabled={isLoading}
-              className="flex-1 accent-green-500"
-            />
-            <span className="text-xs text-gray-600 w-8 text-right">+{maxDetour}%</span>
+      {/* Routing options — hidden on mobile when collapsed */}
+      {!compact && (
+        <div className="flex flex-col gap-2 mt-1">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            Shade Priority
+          </label>
+          <div className="grid grid-cols-3 gap-1">
+            {(Object.keys(ROUTE_PRESETS) as RoutePreset[]).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => handlePreset(p)}
+                disabled={isLoading}
+                className={`flex flex-col items-center py-2 px-1 rounded-lg border text-xs transition-colors ${
+                  preset === p
+                    ? 'border-green-500 bg-green-50 text-green-700 font-semibold'
+                    : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                }`}
+              >
+                <span>{p === 'speed' ? '⚡' : p === 'balanced' ? '⚖️' : '🌿'}</span>
+                <span className="mt-0.5">{PRESET_META[p].label}</span>
+                <span className="text-gray-400 font-normal">{PRESET_META[p].sub}</span>
+              </button>
+            ))}
           </div>
-        )}
-      </div>
+          {preset !== 'speed' && (
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-500 whitespace-nowrap">Max detour</label>
+              <input
+                type="range"
+                min={5}
+                max={50}
+                step={5}
+                value={maxDetour}
+                onChange={(e) => setMaxDetour(Number(e.target.value))}
+                disabled={isLoading}
+                className="flex-1 accent-green-500"
+              />
+              <span className="text-xs text-gray-600 w-8 text-right">+{maxDetour}%</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Go button */}
       <Button type="submit" disabled={isLoading || !canSearch} size="lg" className="mt-1">
