@@ -72,12 +72,7 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
   const isLoading = searchState.status === 'routing' || searchState.status === 'scoring';
   const hasResult = searchState.status === 'done';
 
-  // Auto-expand on mobile when results arrive
-  useEffect(() => {
-    if (hasResult) setMobileExpanded(true);
-  }, [hasResult]);
-
-  // Collapse on mobile when route is cleared
+  // Collapse when route is cleared
   useEffect(() => {
     if (!hasResult && !isLoading) setMobileExpanded(false);
   }, [hasResult, isLoading]);
@@ -114,16 +109,25 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
         'md:h-auto md:rounded-2xl md:shadow-xl md:transition-none',
       )}>
 
-        {/* ── Mobile drag handle ──────────────────────────────────────────── */}
+        {/* ── Mobile drag handle + collapsed result summary ───────────────── */}
         <button
-          className="md:hidden flex-shrink-0 w-full flex flex-col items-center pt-2.5 pb-1 touch-none"
+          className="md:hidden flex-shrink-0 w-full flex flex-col items-center pt-2.5 pb-1.5 touch-none"
           onClick={() => setMobileExpanded((v) => !v)}
           aria-label={mobileExpanded ? 'Collapse panel' : 'Expand panel'}
         >
           <span className="w-9 h-1 rounded-full bg-gray-300" />
-          <span className="mt-1 text-[10px] text-gray-400 font-medium">
-            {mobileExpanded ? '▼ collapse' : '▲ expand'}
-          </span>
+          {/* One-line route summary while collapsed */}
+          {!mobileExpanded && hasResult && searchState.shadedRoute ? (
+            <span className="mt-1.5 text-xs text-green-700 font-medium">
+              🌿 {searchState.shadedRoute.shadeScore}% shade ·{' '}
+              {Math.round(searchState.shadedRoute.durationSeconds / 60)} min —{' '}
+              <span className="text-gray-400">tap for details</span>
+            </span>
+          ) : (
+            <span className="mt-1 text-[10px] text-gray-400 font-medium">
+              {mobileExpanded ? '▼ collapse' : '▲ expand'}
+            </span>
+          )}
         </button>
 
         {/* ── Header — hidden on mobile when collapsed ───────────────────── */}

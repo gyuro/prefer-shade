@@ -53,9 +53,17 @@ function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin,
     if (destination) { lngs.push(destination.lng); lats.push(destination.lat); }
     if (lngs.length === 0) return;
 
+    // On mobile the sidebar is a bottom sheet (h-64 ≈ 256px); on desktop it's
+    // a 320px left sidebar. Use different padding so the route is always visible.
+    const mobile = window.innerWidth < 768;
     map.fitBounds(
       [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
-      { padding: { top: 80, bottom: 80, left: 380, right: 80 }, duration: 600 }
+      {
+        padding: mobile
+          ? { top: 60, bottom: 280, left: 24, right: 24 }
+          : { top: 80, bottom: 80, left: 380, right: 80 },
+        duration: 800,
+      }
     );
   }, [map, fastestRoute, shadedRoute, origin, destination]);
 
