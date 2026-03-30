@@ -21,7 +21,11 @@
       "Bash(git init:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(npm run:*)",
+      "Bash(gh repo:*)",
+      "Bash(git remote:*)",
+      "Bash(git checkout:*)"
     ]
   }
 }

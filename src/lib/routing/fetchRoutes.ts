@@ -19,18 +19,20 @@ interface OsrmResponse {
   message?: string;
 }
 
-export async function fetchRoutes(options: FetchRoutesOptions): Promise<RouteCandidate[]> {
-  const body = {
-    origin: options.origin,
-    destination: options.destination,
-    intermediates: options.intermediates ?? [],
-  };
+const OSRM_BASE = 'https://router.project-osrm.org/route/v1/foot';
 
-  const response = await fetch('/api/routes', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+export async function fetchRoutes(options: FetchRoutesOptions): Promise<RouteCandidate[]> {
+  const waypoints = [options.origin, ...(options.intermediates ?? []), options.destination];
+  const coords = waypoints.map((p) => `${p.lng},${p.lat}`).join(';');
+  const hasIntermediates = (options.intermediates ?? []).length > 0;
+
+  const params = new URLSearchParams({
+    overview: 'full',
+    geometries: 'polyline',
+    alternatives: hasIntermediates ? 'false' : 'true',
   });
+
+  const response = await fetch(`${OSRM_BASE}/${coords}?${params}`);
 
   if (!response.ok) {
     throw new Error(`Routes API error: ${response.status}`);
