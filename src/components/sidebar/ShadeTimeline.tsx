@@ -7,7 +7,6 @@ import { Spinner } from '@/components/ui/Spinner';
 interface Props {
   timeline: HourlyShade[];
   loading: boolean;
-  onLoad: () => void;
   hasRoute: boolean;
 }
 
@@ -25,12 +24,16 @@ function barColor(score: number, isNight: boolean): string {
   return '#f97316';
 }
 
-export function ShadeTimeline({ timeline, loading, onLoad, hasRoute }: Props) {
+export function ShadeTimeline({ timeline, loading, hasRoute }: Props) {
   const [currentHour, setCurrentHour] = useState(-1);
   useEffect(() => { setCurrentHour(new Date().getHours()); }, []);
 
   const best = bestShadeWindow(timeline);
   const hasData = timeline.length > 0;
+
+  // Max score among daytime hours — used to normalise bar heights so the
+  // shadiest hour always reaches the top of the chart.
+  const maxScore = Math.max(1, ...timeline.filter((h) => !h.isNight).map((h) => h.score));
 
   return (
     <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
@@ -39,49 +42,50 @@ export function ShadeTimeline({ timeline, loading, onLoad, hasRoute }: Props) {
         {loading && <Spinner className="w-3 h-3 text-gray-400" />}
       </div>
 
-      {/* Prompt to load — shown when route exists but timeline not yet computed */}
-      {!hasData && !loading && hasRoute && (
-        <button
-          onClick={onLoad}
-          className="w-full text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg py-2 px-3 hover:bg-green-100 transition-colors"
-        >
-          Analyze shade forecast for all hours →
-        </button>
+      {!hasRoute && (
+        <p className="text-xs text-gray-400">Available after a route is found.</p>
       )}
 
-      {!hasData && !loading && !hasRoute && (
-        <p className="text-xs text-gray-400">Available after a route is found.</p>
+      {hasRoute && !hasData && !loading && (
+        <p className="text-xs text-gray-400">Computing shade forecast…</p>
       )}
 
       {hasData && (
         <>
-          {/* Bar chart */}
-          <div className="flex items-end gap-px h-14 mb-1">
-            {timeline.map(({ hour, score, isNight }) => (
-              <div key={hour} className="flex-1 flex flex-col items-center">
-                <div
-                  className="w-full rounded-sm"
-                  style={{
-                    height: `${isNight ? 8 : Math.max(score, 6)}%`,
-                    backgroundColor: barColor(score, isNight),
-                    outline: hour === currentHour ? '2px solid #1d4ed8' : 'none',
-                    outlineOffset: '1px',
-                  }}
-                  title={isNight ? 'Night' : `${formatHour(hour)}: ${score}% shade`}
-                />
-              </div>
-            ))}
+          {/* Bar chart — heights normalised so the tallest bar fills the container */}
+          <div className="flex items-end gap-px h-16 mb-1">
+            {timeline.map(({ hour, score, isNight }) => {
+              const heightPct = isNight
+                ? 8
+                : Math.max((score / maxScore) * 100, 6);
+              const isCurrent = hour === currentHour;
+              return (
+                <div key={hour} className="flex-1 flex flex-col justify-end h-full">
+                  <div
+                    className="w-full rounded-sm transition-all"
+                    style={{
+                      height: `${heightPct}%`,
+                      backgroundColor: barColor(score, isNight),
+                      outline: isCurrent ? '2px solid #1d4ed8' : 'none',
+                      outlineOffset: '1px',
+                    }}
+                    title={isNight ? `${formatHour(hour)}: Night` : `${formatHour(hour)}: ${score}% shade`}
+                  />
+                </div>
+              );
+            })}
           </div>
 
-          {/* X-axis */}
+          {/* X-axis labels */}
           <div className="flex justify-between text-gray-400 mb-2" style={{ fontSize: '9px' }}>
             {[6, 9, 12, 15, 18, 21].map((h) => <span key={h}>{formatHour(h)}</span>)}
           </div>
 
           {/* Legend */}
-          <div className="flex items-center gap-3 text-xs mb-2">
+          <div className="flex items-center gap-3 text-xs mb-2 flex-wrap">
             {[
-              { color: '#22c55e', label: 'Shaded' },
+              { color: '#22c55e', label: '≥60% shaded' },
+              { color: '#fbbf24', label: 'Partial' },
               { color: '#f97316', label: 'Full sun' },
             ].map(({ color, label }) => (
               <div key={label} className="flex items-center gap-1">
@@ -90,7 +94,7 @@ export function ShadeTimeline({ timeline, loading, onLoad, hasRoute }: Props) {
               </div>
             ))}
             <div className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-sm inline-block border border-blue-600" style={{ background: '#bfdbfe' }} />
+              <span className="w-2 h-2 rounded-sm inline-block" style={{ background: '#bfdbfe', outline: '2px solid #1d4ed8' }} />
               <span className="text-gray-500">Now</span>
             </div>
           </div>

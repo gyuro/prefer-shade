@@ -62,7 +62,6 @@ export default function ShadeApp() {
 
       <Sidebar
         searchState={routeSearch}
-        location={location}
         hasGpsLocation={!!location}
         onSearch={handleSearch}
         onSelectRoute={routeSearch.selectRoute}

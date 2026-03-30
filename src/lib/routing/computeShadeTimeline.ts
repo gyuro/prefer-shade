@@ -4,7 +4,6 @@ import { castBuildingShadow, getSunPosition } from '@/lib/shadow';
 import { ShadowIndex } from '@/lib/shadow/shadowIndex';
 import { scorePolyline } from './scoreRoute';
 import { expandBbox, pointsBbox } from '@/lib/utils/geo';
-import type { LatLng } from '@/types/route';
 
 export interface HourlyShade {
   hour: number;
@@ -30,14 +29,20 @@ export function shadeLabel(score: number): { label: string; icon: string } {
  * Compute shade score per hour using the fast ShadowIndex pipeline.
  * Buildings are fetched once (cached). Shadow polygons are recast per hour
  * using inline math. Scoring uses pure point-sampling — no Turf in the loop.
+ *
+ * Sun position and building bbox are derived from the route itself, not the
+ * user's GPS, so the timeline is correct even when searching distant cities.
  */
 export async function computeShadeTimeline(
   encodedPolyline: string,
-  location: LatLng,
   date: Date
 ): Promise<HourlyShade[]> {
   const routeCoords = decode(encodedPolyline, 5).map(([lat, lng]) => ({ lat, lng }));
-  const bbox = expandBbox(pointsBbox([location, ...routeCoords]), 200);
+  if (routeCoords.length === 0) return [];
+
+  // Use the route midpoint as the reference for sun position and bbox
+  const mid = routeCoords[Math.floor(routeCoords.length / 2)];
+  const bbox = expandBbox(pointsBbox(routeCoords), 300);
 
   // Buildings are cached — this is usually a memory hit, not a network call
   const buildings = await fetchBuildings(bbox);
@@ -48,7 +53,7 @@ export async function computeShadeTimeline(
     const d = new Date(date);
     d.setHours(hour, 0, 0, 0);
 
-    const sun = getSunPosition(d, location.lat, location.lng);
+    const sun = getSunPosition(d, mid.lat, mid.lng);
 
     if (!sun.isDay) {
       results.push({ hour, score: 0, isNight: true });

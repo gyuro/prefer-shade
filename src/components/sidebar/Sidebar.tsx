@@ -5,11 +5,10 @@ import { RouteCard } from './RouteCard';
 import { ShadeTimeline } from './ShadeTimeline';
 import { Spinner } from '@/components/ui/Spinner';
 import { useShadeTimeline } from '@/hooks/useShadeTimeline';
-import type { RouteOptions, RouteSearchState, ScoredRoute, LatLng } from '@/types/route';
+import type { LatLng, RouteOptions, RouteSearchState, ScoredRoute } from '@/types/route';
 
 interface Props {
   searchState: RouteSearchState;
-  location: LatLng | null;
   hasGpsLocation: boolean;
   onSearch: (origin: string | null, destination: string | null, time: Date, options: RouteOptions) => void;
   onSelectRoute: (which: 'fastest' | 'shaded') => void;
@@ -41,16 +40,13 @@ const STATUS_LABELS: Record<string, string> = {
   scoring: 'Calculating shade coverage...',
 };
 
-export function Sidebar({ searchState, location, hasGpsLocation, onSearch, onSelectRoute, onReset, searchOrigin, searchDest, selectedRoute }: Props) {
+export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, onReset, searchOrigin, searchDest, selectedRoute }: Props) {
   const isLoading = searchState.status === 'routing' || searchState.status === 'scoring';
   const hasResult = searchState.status === 'done';
 
   const timelinePolyline =
     searchState.shadedRoute?.encodedPolyline ?? searchState.fastestRoute?.encodedPolyline ?? null;
-  const { timeline, loading: timelineLoading, load: loadTimeline } = useShadeTimeline(
-    timelinePolyline,
-    location
-  );
+  const { timeline, loading: timelineLoading } = useShadeTimeline(timelinePolyline);
 
   const fastestScore = searchState.fastestRoute?.shadeScore;
   const shadedScore = searchState.shadedRoute?.shadeScore;
@@ -132,7 +128,6 @@ export function Sidebar({ searchState, location, hasGpsLocation, onSearch, onSel
         <ShadeTimeline
           timeline={timeline}
           loading={timelineLoading}
-          onLoad={loadTimeline}
           hasRoute={hasResult}
         />
 
