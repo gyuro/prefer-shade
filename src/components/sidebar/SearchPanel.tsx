@@ -253,7 +253,7 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
     const time = new Date(dateTimeStr);
     const options: RouteOptions = {
       maxDetourPct: maxDetour,
-      shadeGainPerDetourPct: ROUTE_PRESETS[preset].shadeGainPerDetourPct,
+      minShadeGain: ROUTE_PRESETS[preset].minShadeGain,
     };
     onSearch(
       origin === GPS ? null : (origin.trim() || null),

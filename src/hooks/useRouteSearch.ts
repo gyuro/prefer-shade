@@ -112,9 +112,8 @@ export function useRouteSearch() {
             if (distOk && timeOk && noLoop) {
               const scored = scoreRouteWithIndex(candidate, index, 'MOST_SHADED');
               scored.waypoints = waypoints;
-              const extraDistPct = (candidate.distanceMeters / scoredFastest.distanceMeters - 1) * 100;
               const shadeGain = scored.shadeScore - scoredFastest.shadeScore;
-              if (shadeGain >= extraDistPct * options.shadeGainPerDetourPct && scored.shadeScore >= scoredShaded.shadeScore) {
+              if (shadeGain >= options.minShadeGain && scored.shadeScore >= scoredShaded.shadeScore) {
                 scoredShaded = scored;
               }
             }

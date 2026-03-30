@@ -22,14 +22,14 @@ export interface ScoredRoute extends RouteCandidate {
 export interface RouteOptions {
   /** Max % longer than the fastest route that is acceptable (e.g. 20 = +20%) */
   maxDetourPct: number;
-  /** Shade-points of improvement required per 1% of extra distance */
-  shadeGainPerDetourPct: number;
+  /** Minimum shade-point improvement over the fastest route required to accept a waypoint route */
+  minShadeGain: number;
 }
 
 export const ROUTE_PRESETS = {
-  speed:    { maxDetourPct: 5,  shadeGainPerDetourPct: 2.0 },
-  balanced: { maxDetourPct: 20, shadeGainPerDetourPct: 1.0 },
-  shade:    { maxDetourPct: 35, shadeGainPerDetourPct: 0.5 },
+  speed:    { maxDetourPct: 5,  minShadeGain: 10 },
+  balanced: { maxDetourPct: 20, minShadeGain: 5  },
+  shade:    { maxDetourPct: 35, minShadeGain: 2  },
 } satisfies Record<string, RouteOptions>;
 
 export type RoutePreset = keyof typeof ROUTE_PRESETS;
