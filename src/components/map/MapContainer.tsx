@@ -19,11 +19,20 @@ interface MapContentProps {
   selectedRoute: 'fastest' | 'shaded';
   origin: LatLng | null;
   destination: LatLng | null;
+  userLocation: LatLng | null;
 }
 
-function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin, destination }: MapContentProps) {
+function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin, destination, userLocation }: MapContentProps) {
   const { current: map } = useMap();
   const fittedPolylineRef = useRef<string | null>(null);
+  const centeredOnGpsRef = useRef(false);
+
+  // Fly to GPS location once it first resolves — skip if a route is already shown
+  useEffect(() => {
+    if (!map || !userLocation || centeredOnGpsRef.current || fastestRoute) return;
+    centeredOnGpsRef.current = true;
+    map.flyTo({ center: [userLocation.lng, userLocation.lat], zoom: 15, duration: 800 });
+  }, [map, userLocation, fastestRoute]);
 
   useEffect(() => {
     if (!map || !fastestRoute) return;
@@ -83,7 +92,7 @@ export function MapContainer({ center, ...contentProps }: Props) {
     <Map
       id="shade-map"
       mapStyle={MAP_STYLE}
-      initialViewState={{ longitude: center.lng, latitude: center.lat, zoom: 14 }}
+      initialViewState={{ longitude: center.lng, latitude: center.lat, zoom: 4 }}
       style={{ width: '100%', height: '100%' }}
     >
       <MapContent {...contentProps} />

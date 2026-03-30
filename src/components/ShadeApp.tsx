@@ -57,6 +57,7 @@ export default function ShadeApp() {
         origin={searchOrigin}
         destination={searchDest}
         center={center}
+        userLocation={location}
       />
 
       <Sidebar

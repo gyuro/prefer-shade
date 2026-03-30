@@ -12,6 +12,7 @@ interface Props {
   origin: LatLng | null;
   destination: LatLng | null;
   center: LatLng;
+  userLocation: LatLng | null;
 }
 
 export function MapApp(props: Props) {
