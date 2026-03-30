@@ -16,6 +16,26 @@ interface ExtendedState extends RouteSearchState {
   shadows: Feature<Polygon>[];
 }
 
+/**
+ * Detect closed loops in a route by projecting each point onto the
+ * origin→destination axis. If the projection ever retreats by more than
+ * 10% of the total span, the route is doubling back on itself.
+ */
+function hasBacktracking(encodedPolyline: string, origin: LatLng, destination: LatLng): boolean {
+  const coords = decode(encodedPolyline, 5); // [[lat, lng]]
+  const dx = destination.lng - origin.lng;
+  const dy = destination.lat - origin.lat;
+  const len2 = dx * dx + dy * dy;
+  if (len2 < 1e-12) return false;
+  let maxT = -Infinity;
+  for (const [lat, lng] of coords) {
+    const t = ((lng - origin.lng) * dx + (lat - origin.lat) * dy) / len2;
+    if (t > maxT) maxT = t;
+    else if (maxT - t > 0.10) return true; // retreated >10% of origin→dest span
+  }
+  return false;
+}
+
 export function useRouteSearch() {
   const [state, setState] = useState<ExtendedState>({
     status: 'idle',
@@ -87,7 +107,8 @@ export function useRouteSearch() {
             const candidate = shadedCandidates[0];
             const distOk = candidate.distanceMeters <= scoredFastest.distanceMeters * MAX_DETOUR_DIST;
             const timeOk = candidate.durationSeconds <= scoredFastest.durationSeconds * MAX_DETOUR_TIME;
-            if (distOk && timeOk) {
+            const noLoop = !hasBacktracking(candidate.encodedPolyline, origin, destination);
+            if (distOk && timeOk && noLoop) {
               const scored = scoreRouteWithIndex(candidate, index, 'MOST_SHADED');
               scored.waypoints = waypoints;
               if (scored.shadeScore >= scoredShaded.shadeScore) {
