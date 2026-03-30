@@ -58,13 +58,21 @@ export function useRouteSearch() {
       // ── Step 3: Build index ONCE — shared across all scoring + waypoint passes ──
       const index = new ShadowIndex(shadows);
 
-      // ── Step 4: Score fastest route (synchronous, no Turf in hot path) ──
+      // ── Step 4: Score fastest route + any OSRM alternatives ──────────────
       const scoredFastest: ScoredRoute = scoreRouteWithIndex(fastest, index, 'FASTEST');
 
-      // ── Step 5: Optimize waypoints (uses same index, no extra intersection ops) ──
-      const waypoints = optimizeWaypoints(fastest.encodedPolyline, index);
-
+      // OSRM may return multiple route geometries (alternatives=true). Score them
+      // all and use the shadiest as the starting point for the shaded route.
       let scoredShaded: ScoredRoute = { ...scoredFastest, routeLabel: 'MOST_SHADED' };
+      for (let i = 1; i < candidates.length; i++) {
+        const alt = scoreRouteWithIndex(candidates[i], index, 'MOST_SHADED');
+        if (alt.shadeScore >= scoredShaded.shadeScore) {
+          scoredShaded = alt;
+        }
+      }
+
+      // ── Step 5: Waypoint optimisation — probe parallel streets ────────────
+      const waypoints = optimizeWaypoints(fastest.encodedPolyline, index);
 
       if (waypoints.length > 0) {
         // ── Step 6: Fetch waypoint route + score (re-use same shadow index) ──
@@ -72,7 +80,7 @@ export function useRouteSearch() {
         if (shadedCandidates.length > 0) {
           const scored = scoreRouteWithIndex(shadedCandidates[0], index, 'MOST_SHADED');
           scored.waypoints = waypoints;
-          if (scored.shadeScore > scoredFastest.shadeScore) {
+          if (scored.shadeScore >= scoredShaded.shadeScore) {
             scoredShaded = scored;
           }
         }
@@ -82,9 +90,9 @@ export function useRouteSearch() {
         status: 'done',
         fastestRoute: scoredFastest,
         shadedRoute: scoredShaded,
-        selectedRoute: scoredShaded.shadeScore > scoredFastest.shadeScore ? 'shaded' : 'fastest',
+        selectedRoute: scoredShaded.encodedPolyline !== scoredFastest.encodedPolyline || scoredShaded.shadeScore > scoredFastest.shadeScore ? 'shaded' : 'fastest',
         error: null,
-        shadows, // expose for map overlay — no second computation needed in page.tsx
+        shadows,
       });
     } catch (err) {
       setState({

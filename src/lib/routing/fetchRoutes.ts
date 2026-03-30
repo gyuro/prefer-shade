@@ -32,6 +32,13 @@ export async function fetchRoutes(options: FetchRoutesOptions): Promise<RouteCan
     alternatives: hasIntermediates ? 'false' : 'true',
   });
 
+  // For waypoint routes, allow a generous snap radius (100 m) on intermediates
+  // so OSRM can reach a parallel street rather than snapping back to the same road.
+  if (hasIntermediates) {
+    const radiuses = ['-1', ...(options.intermediates!.map(() => '100')), '-1'].join(';');
+    params.set('radiuses', radiuses);
+  }
+
   const response = await fetch(`${OSRM_BASE}/${coords}?${params}`);
 
   if (!response.ok) {
