@@ -2,11 +2,11 @@ import { decode } from '@googlemaps/polyline-codec';
 import { ShadowIndex } from '@/lib/shadow/shadowIndex';
 import type { LatLng } from '@/types/route';
 
-const DECISION_INTERVAL_M = 80;
-const PERP_OFFSET_M = 80;      // must cross a city block (~80m) to hit a parallel street
-const MIN_IMPROVEMENT = 0.05;  // 5% — was 12%, which was too strict
-const MAX_WAYPOINTS = 8;
-const MIN_WAYPOINT_SPACING_M = 60;
+const DECISION_INTERVAL_M = 100;
+const PERP_OFFSET_M = 45;      // probe at ~half a city block; large enough to cross, small enough to stay sane
+const MIN_IMPROVEMENT = 0.08;  // 8% shade improvement required
+const MAX_WAYPOINTS = 6;
+const MIN_WAYPOINT_SPACING_M = 80;
 
 const DEG_TO_RAD = Math.PI / 180;
 const RAD_TO_DEG = 180 / Math.PI;

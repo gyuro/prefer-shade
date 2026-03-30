@@ -74,14 +74,23 @@ export function useRouteSearch() {
       // ── Step 5: Waypoint optimisation — probe parallel streets ────────────
       const waypoints = optimizeWaypoints(fastest.encodedPolyline, index);
 
+      // Max acceptable detour: 30% longer distance or 40% more time
+      const MAX_DETOUR_DIST = 1.30;
+      const MAX_DETOUR_TIME = 1.40;
+
       if (waypoints.length > 0) {
         // ── Step 6: Fetch waypoint route + score (re-use same shadow index) ──
         const shadedCandidates = await fetchRoutes({ origin, destination, intermediates: waypoints });
         if (shadedCandidates.length > 0) {
-          const scored = scoreRouteWithIndex(shadedCandidates[0], index, 'MOST_SHADED');
-          scored.waypoints = waypoints;
-          if (scored.shadeScore >= scoredShaded.shadeScore) {
-            scoredShaded = scored;
+          const candidate = shadedCandidates[0];
+          const distOk = candidate.distanceMeters <= scoredFastest.distanceMeters * MAX_DETOUR_DIST;
+          const timeOk = candidate.durationSeconds <= scoredFastest.durationSeconds * MAX_DETOUR_TIME;
+          if (distOk && timeOk) {
+            const scored = scoreRouteWithIndex(candidate, index, 'MOST_SHADED');
+            scored.waypoints = waypoints;
+            if (scored.shadeScore >= scoredShaded.shadeScore) {
+              scoredShaded = scored;
+            }
           }
         }
       }
