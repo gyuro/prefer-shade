@@ -373,7 +373,7 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
 
       {/* Go button */}
       <Button type="submit" disabled={isLoading || !canSearch} size="lg" className="mt-1">
-        {isLoading ? <Spinner className="w-4 h-4 text-white" /> : 'Find Shade Route'}
+        {isLoading ? <Spinner className="w-4 h-4 text-white" /> : 'Find Preferred Shade Route'}
       </Button>
 
       {hasResult && (

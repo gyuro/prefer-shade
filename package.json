@@ -1,7 +1,7 @@
 {
-  "name": "shade-routing",
+  "name": "prefer-shade",
   "version": "1.0.0",
-  "description": "Shadow-driven pedestrian routing app",
+  "description": "Prefer Shade — walk the shadiest path to your destination",
   "private": true,
   "scripts": {
     "dev": "next dev",

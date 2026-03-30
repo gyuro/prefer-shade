@@ -42,7 +42,7 @@ export function RouteCard({ route, isSelected, onSelect, comparedShadeScore }: P
           </span>
           <span className="text-sm">{icon}</span>
         </div>
-        <Badge label={isShaded ? 'Shade Route' : 'Fast Route'} variant={isShaded ? 'green' : 'blue'} />
+        <Badge label={isShaded ? 'Prefer Shade' : 'Fast Route'} variant={isShaded ? 'green' : 'blue'} />
       </div>
 
       {/* Shade label */}

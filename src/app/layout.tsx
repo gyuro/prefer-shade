@@ -5,7 +5,7 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Shade Route — Walk in the Shade',
+  title: 'Prefer Shade — Walk in the Shade',
   description: 'Shadow-driven pedestrian routing. Find the shadiest path to your destination.',
 };
 

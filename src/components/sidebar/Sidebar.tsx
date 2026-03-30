@@ -85,7 +85,7 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
       <div className="bg-gradient-to-br from-green-600 to-green-700 p-5">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-2xl">🌿</span>
-          <h1 className="text-lg font-bold text-white">Shade Route</h1>
+          <h1 className="text-lg font-bold text-white">Prefer Shade</h1>
         </div>
         <p className="text-green-100 text-xs">Walk in the shade, not the sun</p>
       </div>
@@ -168,7 +168,7 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
       </div>
 
       <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400 text-center">
-        Shade Route · Shadow-driven navigation
+        Prefer Shade · Shadow-driven navigation
       </div>
     </div>
   );
