@@ -19,7 +19,12 @@ interface OsrmResponse {
   message?: string;
 }
 
-const OSRM_BASE = 'https://router.project-osrm.org/route/v1/foot';
+// router.project-osrm.org only serves the car profile despite accepting /foot in the URL.
+// routing.openstreetmap.de/routed-foot is the correct public pedestrian OSRM server (~4.6 km/h).
+const OSRM_SERVERS = [
+  'https://routing.openstreetmap.de/routed-foot/route/v1/foot',
+  'https://router.project-osrm.org/route/v1/foot', // fallback (car speeds — better than nothing)
+];
 
 export async function fetchRoutes(options: FetchRoutesOptions): Promise<RouteCandidate[]> {
   const waypoints = [options.origin, ...(options.intermediates ?? []), options.destination];
@@ -33,32 +38,32 @@ export async function fetchRoutes(options: FetchRoutesOptions): Promise<RouteCan
   });
 
   // Allow intermediate waypoints to snap to roads within 50 m.
-  // Enough to reach a parallel street; not so large that OSRM picks a road
-  // in a completely different direction.
   if (hasIntermediates) {
-    // OSRM uses "unlimited" (not -1) to mean no snap constraint on a waypoint
     const radiuses = ['unlimited', ...(options.intermediates!.map(() => '50')), 'unlimited'].join(';');
     params.set('radiuses', radiuses);
   }
 
-  const response = await fetch(`${OSRM_BASE}/${coords}?${params}`);
-
-  if (!response.ok) {
-    throw new Error(`Routes API error: ${response.status}`);
+  let lastError = '';
+  for (const base of OSRM_SERVERS) {
+    try {
+      const response = await fetch(`${base}/${coords}?${params}`, {
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!response.ok) { lastError = `${base} returned ${response.status}`; continue; }
+      const data: OsrmResponse = await response.json();
+      if (data.code !== 'Ok') { lastError = data.message ?? 'No route found'; continue; }
+      return (data.routes ?? []).map((r, i) => ({
+        encodedPolyline: r.geometry,
+        durationSeconds: Math.round(r.duration),
+        distanceMeters: Math.round(r.distance),
+        label: i === 0 ? 'FASTEST' : 'ALTERNATE',
+      }));
+    } catch (err) {
+      lastError = String(err);
+    }
   }
 
-  const data: OsrmResponse = await response.json();
-
-  if (data.code !== 'Ok') {
-    throw new Error(data.message ?? 'Routing failed — no route found');
-  }
-
-  return (data.routes ?? []).map((r, i) => ({
-    encodedPolyline: r.geometry,
-    durationSeconds: Math.round(r.duration),
-    distanceMeters: Math.round(r.distance),
-    label: i === 0 ? 'FASTEST' : 'ALTERNATE',
-  }));
+  throw new Error(lastError || 'Routing failed — no route found');
 }
 
 /** Decode a polyline (precision 5) into a GeoJSON LineString */
