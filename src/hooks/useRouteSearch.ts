@@ -94,9 +94,9 @@ export function useRouteSearch() {
       // ── Step 5: Waypoint optimisation — probe parallel streets ────────────
       const waypoints = optimizeWaypoints(fastest.encodedPolyline, index);
 
-      // Max acceptable detour: 30% longer distance or 40% more time
-      const MAX_DETOUR_DIST = 1.30;
-      const MAX_DETOUR_TIME = 1.40;
+      // Hard caps: waypoint route must not exceed these vs. the fastest route
+      const MAX_DETOUR_DIST = 1.20;
+      const MAX_DETOUR_TIME = 1.25;
 
       if (waypoints.length > 0) {
         // ── Step 6: Fetch waypoint route + score (re-use same shadow index) ──
@@ -111,7 +111,11 @@ export function useRouteSearch() {
             if (distOk && timeOk && noLoop) {
               const scored = scoreRouteWithIndex(candidate, index, 'MOST_SHADED');
               scored.waypoints = waypoints;
-              if (scored.shadeScore >= scoredShaded.shadeScore) {
+              // Each % of extra distance must earn ≥1 shade-point improvement
+              // over the fastest route, otherwise the detour isn't worth it.
+              const extraDistPct = (candidate.distanceMeters / scoredFastest.distanceMeters - 1) * 100;
+              const shadeGain = scored.shadeScore - scoredFastest.shadeScore;
+              if (shadeGain >= extraDistPct && scored.shadeScore >= scoredShaded.shadeScore) {
                 scoredShaded = scored;
               }
             }
