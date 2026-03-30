@@ -36,7 +36,8 @@ export async function fetchRoutes(options: FetchRoutesOptions): Promise<RouteCan
   // Enough to reach a parallel street; not so large that OSRM picks a road
   // in a completely different direction.
   if (hasIntermediates) {
-    const radiuses = ['-1', ...(options.intermediates!.map(() => '50')), '-1'].join(';');
+    // OSRM uses "unlimited" (not -1) to mean no snap constraint on a waypoint
+    const radiuses = ['unlimited', ...(options.intermediates!.map(() => '50')), 'unlimited'].join(';');
     params.set('radiuses', radiuses);
   }
 

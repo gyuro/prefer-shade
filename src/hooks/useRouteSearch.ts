@@ -80,18 +80,23 @@ export function useRouteSearch() {
 
       if (waypoints.length > 0) {
         // ── Step 6: Fetch waypoint route + score (re-use same shadow index) ──
-        const shadedCandidates = await fetchRoutes({ origin, destination, intermediates: waypoints });
-        if (shadedCandidates.length > 0) {
-          const candidate = shadedCandidates[0];
-          const distOk = candidate.distanceMeters <= scoredFastest.distanceMeters * MAX_DETOUR_DIST;
-          const timeOk = candidate.durationSeconds <= scoredFastest.durationSeconds * MAX_DETOUR_TIME;
-          if (distOk && timeOk) {
-            const scored = scoreRouteWithIndex(candidate, index, 'MOST_SHADED');
-            scored.waypoints = waypoints;
-            if (scored.shadeScore >= scoredShaded.shadeScore) {
-              scoredShaded = scored;
+        // Failures here are non-fatal — fall back to the best route found so far.
+        try {
+          const shadedCandidates = await fetchRoutes({ origin, destination, intermediates: waypoints });
+          if (shadedCandidates.length > 0) {
+            const candidate = shadedCandidates[0];
+            const distOk = candidate.distanceMeters <= scoredFastest.distanceMeters * MAX_DETOUR_DIST;
+            const timeOk = candidate.durationSeconds <= scoredFastest.durationSeconds * MAX_DETOUR_TIME;
+            if (distOk && timeOk) {
+              const scored = scoreRouteWithIndex(candidate, index, 'MOST_SHADED');
+              scored.waypoints = waypoints;
+              if (scored.shadeScore >= scoredShaded.shadeScore) {
+                scoredShaded = scored;
+              }
             }
           }
+        } catch {
+          // Waypoint route failed (e.g. OSRM couldn't snap a waypoint) — use best so far
         }
       }
 
