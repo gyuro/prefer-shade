@@ -1,5 +1,6 @@
 'use client';
 
+import { decode } from '@googlemaps/polyline-codec';
 import { SearchPanel } from './SearchPanel';
 import { RouteCard } from './RouteCard';
 import { ShadeTimeline } from './ShadeTimeline';
@@ -18,10 +19,31 @@ interface Props {
   selectedRoute: ScoredRoute | null;
 }
 
+/**
+ * Sample N evenly-spaced interior points from a decoded polyline.
+ * These are actual road points (from OSRM's geometry), so Google Maps
+ * will route through them and follow the same path.
+ */
+function samplePolylineWaypoints(encodedPolyline: string, count: number): LatLng[] {
+  const coords = decode(encodedPolyline, 5); // [[lat, lng], ...]
+  if (coords.length < 3 || count < 1) return [];
+  // Interior only: exclude first and last point (those are origin/dest)
+  const interior = coords.slice(1, -1);
+  if (interior.length === 0) return [];
+  const step = interior.length / (count + 1);
+  const result: LatLng[] = [];
+  for (let i = 1; i <= count; i++) {
+    const idx = Math.min(Math.round(i * step), interior.length - 1);
+    const [lat, lng] = interior[idx];
+    result.push({ lat, lng });
+  }
+  return result;
+}
+
 function buildGoogleMapsUrl(
   origin: LatLng,
   dest: LatLng,
-  waypoints?: LatLng[]
+  encodedPolyline?: string
 ): string {
   const params = new URLSearchParams({
     api: '1',
@@ -29,8 +51,14 @@ function buildGoogleMapsUrl(
     destination: `${dest.lat},${dest.lng}`,
     travelmode: 'walking',
   });
-  if (waypoints && waypoints.length > 0) {
-    params.set('waypoints', waypoints.map((w) => `${w.lat},${w.lng}`).join('|'));
+  if (encodedPolyline) {
+    // Sample 4 intermediate road points from the actual route geometry.
+    // Google Maps supports up to 8 waypoints; 4 is enough to follow the path
+    // without making the URL too long or the route too constrained.
+    const wps = samplePolylineWaypoints(encodedPolyline, 4);
+    if (wps.length > 0) {
+      params.set('waypoints', wps.map((w) => `${w.lat},${w.lng}`).join('|'));
+    }
   }
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
@@ -112,7 +140,7 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
         {/* Navigate button — opens selected route in Google Maps */}
         {hasResult && searchOrigin && searchDest && (
           <a
-            href={buildGoogleMapsUrl(searchOrigin, searchDest, selectedRoute?.waypoints)}
+            href={buildGoogleMapsUrl(searchOrigin, searchDest, selectedRoute?.encodedPolyline)}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
