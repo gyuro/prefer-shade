@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
+import { ROUTE_PRESETS, type RouteOptions, type RoutePreset } from '@/types/route';
 
 /** Sentinel stored in field state when GPS mode is active for that field */
 const GPS = '__GPS__';
@@ -43,7 +44,7 @@ async function fetchSuggestions(query: string): Promise<Suggestion[]> {
 interface Props {
   isLoading: boolean;
   hasGpsLocation: boolean;
-  onSearch: (origin: string | null, destination: string | null, time: Date) => void;
+  onSearch: (origin: string | null, destination: string | null, time: Date, options: RouteOptions) => void;
   onReset: () => void;
   hasResult: boolean;
 }
@@ -216,11 +217,24 @@ function LocationField({
   );
 }
 
+const PRESET_META: Record<RoutePreset, { label: string; sub: string }> = {
+  speed:    { label: 'Speed',     sub: 'Direct route' },
+  balanced: { label: 'Balanced',  sub: 'Up to +20%' },
+  shade:    { label: 'Max Shade', sub: 'Up to +35%' },
+};
+
 export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasResult }: Props) {
   const [origin, setOrigin] = useState('');
   const [dest, setDest] = useState('');
   const [dateTimeStr, setDateTimeStr] = useState(() => toDateTimeLocal(new Date()));
+  const [preset, setPreset] = useState<RoutePreset>('balanced');
+  const [maxDetour, setMaxDetour] = useState(ROUTE_PRESETS.balanced.maxDetourPct);
   const destRef = useRef<HTMLInputElement | null>(null);
+
+  const handlePreset = (p: RoutePreset) => {
+    setPreset(p);
+    setMaxDetour(ROUTE_PRESETS[p].maxDetourPct);
+  };
 
   // Refocus the destination field when a search completes
   useEffect(() => {
@@ -237,10 +251,15 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
     if (!hasOrigin && !hasGpsLocation) return;
 
     const time = new Date(dateTimeStr);
+    const options: RouteOptions = {
+      maxDetourPct: maxDetour,
+      shadeGainPerDetourPct: ROUTE_PRESETS[preset].shadeGainPerDetourPct,
+    };
     onSearch(
       origin === GPS ? null : (origin.trim() || null),
       dest === GPS ? null : dest.trim(),
-      isNaN(time.getTime()) ? new Date() : time
+      isNaN(time.getTime()) ? new Date() : time,
+      options
     );
   };
 
@@ -306,6 +325,50 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
             Now
           </button>
         </div>
+      </div>
+
+      {/* Routing options */}
+      <div className="flex flex-col gap-2 mt-1">
+        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          Shade Priority
+        </label>
+        <div className="grid grid-cols-3 gap-1">
+          {(Object.keys(ROUTE_PRESETS) as RoutePreset[]).map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => handlePreset(p)}
+              disabled={isLoading}
+              className={`flex flex-col items-center py-2 px-1 rounded-lg border text-xs transition-colors ${
+                preset === p
+                  ? 'border-green-500 bg-green-50 text-green-700 font-semibold'
+                  : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+              }`}
+            >
+              <span>{p === 'speed' ? '⚡' : p === 'balanced' ? '⚖️' : '🌿'}</span>
+              <span className="mt-0.5">{PRESET_META[p].label}</span>
+              <span className="text-gray-400 font-normal">{PRESET_META[p].sub}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Max detour fine-tune — only show for balanced/shade presets */}
+        {preset !== 'speed' && (
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-gray-500 whitespace-nowrap">Max detour</label>
+            <input
+              type="range"
+              min={5}
+              max={50}
+              step={5}
+              value={maxDetour}
+              onChange={(e) => setMaxDetour(Number(e.target.value))}
+              disabled={isLoading}
+              className="flex-1 accent-green-500"
+            />
+            <span className="text-xs text-gray-600 w-8 text-right">+{maxDetour}%</span>
+          </div>
+        )}
       </div>
 
       {/* Go button */}

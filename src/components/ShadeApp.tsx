@@ -6,7 +6,7 @@ import { Sidebar } from '@/components/sidebar/Sidebar';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useRouteSearch } from '@/hooks/useRouteSearch';
 import { geocodeAddress } from '@/lib/utils/geocode';
-import type { LatLng } from '@/types/route';
+import type { LatLng, RouteOptions } from '@/types/route';
 
 const DEFAULT_CENTER: LatLng = { lat: 37.7749, lng: -122.4194 };
 
@@ -20,7 +20,7 @@ export default function ShadeApp() {
   const center = location ?? DEFAULT_CENTER;
 
   const handleSearch = useCallback(
-    async (originText: string | null, destinationText: string | null, time: Date) => {
+    async (originText: string | null, destinationText: string | null, time: Date, options: RouteOptions) => {
       try {
         const origin = originText ? await geocodeAddress(originText) : location;
         if (!origin) throw new Error('Could not determine your starting location.');
@@ -28,7 +28,7 @@ export default function ShadeApp() {
         if (!dest) throw new Error('Could not determine your destination.');
         setSearchOrigin(origin);
         setSearchDest(dest);
-        await routeSearch.search(origin, dest, time);
+        await routeSearch.search(origin, dest, time, options);
       } catch (err) {
         console.error('Search error:', err);
       }

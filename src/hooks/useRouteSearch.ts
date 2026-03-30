@@ -10,7 +10,8 @@ import { castBuildingShadow, getSunPosition } from '@/lib/shadow';
 import { ShadowIndex } from '@/lib/shadow/shadowIndex';
 import { expandBbox, pointsBbox } from '@/lib/utils/geo';
 import type { Feature, Polygon } from 'geojson';
-import type { LatLng, RouteSearchState, ScoredRoute } from '@/types/route';
+import type { LatLng, RouteOptions, RouteSearchState, ScoredRoute } from '@/types/route';
+import { ROUTE_PRESETS } from '@/types/route';
 
 interface ExtendedState extends RouteSearchState {
   shadows: Feature<Polygon>[];
@@ -46,7 +47,7 @@ export function useRouteSearch() {
     shadows: [],
   });
 
-  const search = useCallback(async (origin: LatLng, destination: LatLng, time?: Date) => {
+  const search = useCallback(async (origin: LatLng, destination: LatLng, time?: Date, options: RouteOptions = ROUTE_PRESETS.balanced) => {
     setState((s) => ({ ...s, status: 'routing', fastestRoute: null, shadedRoute: null, shadows: [], error: null }));
 
     try {
@@ -94,9 +95,9 @@ export function useRouteSearch() {
       // ── Step 5: Waypoint optimisation — probe parallel streets ────────────
       const waypoints = optimizeWaypoints(fastest.encodedPolyline, index);
 
-      // Hard caps: waypoint route must not exceed these vs. the fastest route
-      const MAX_DETOUR_DIST = 1.20;
-      const MAX_DETOUR_TIME = 1.25;
+      // Detour limits derived from user options
+      const MAX_DETOUR_DIST = 1 + options.maxDetourPct / 100;
+      const MAX_DETOUR_TIME = 1 + (options.maxDetourPct * 1.25) / 100;
 
       if (waypoints.length > 0) {
         // ── Step 6: Fetch waypoint route + score (re-use same shadow index) ──
@@ -111,11 +112,9 @@ export function useRouteSearch() {
             if (distOk && timeOk && noLoop) {
               const scored = scoreRouteWithIndex(candidate, index, 'MOST_SHADED');
               scored.waypoints = waypoints;
-              // Each % of extra distance must earn ≥1 shade-point improvement
-              // over the fastest route, otherwise the detour isn't worth it.
               const extraDistPct = (candidate.distanceMeters / scoredFastest.distanceMeters - 1) * 100;
               const shadeGain = scored.shadeScore - scoredFastest.shadeScore;
-              if (shadeGain >= extraDistPct && scored.shadeScore >= scoredShaded.shadeScore) {
+              if (shadeGain >= extraDistPct * options.shadeGainPerDetourPct && scored.shadeScore >= scoredShaded.shadeScore) {
                 scoredShaded = scored;
               }
             }

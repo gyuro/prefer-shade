@@ -5,13 +5,13 @@ import { RouteCard } from './RouteCard';
 import { ShadeTimeline } from './ShadeTimeline';
 import { Spinner } from '@/components/ui/Spinner';
 import { useShadeTimeline } from '@/hooks/useShadeTimeline';
-import type { RouteSearchState, ScoredRoute, LatLng } from '@/types/route';
+import type { RouteOptions, RouteSearchState, ScoredRoute, LatLng } from '@/types/route';
 
 interface Props {
   searchState: RouteSearchState;
   location: LatLng | null;
   hasGpsLocation: boolean;
-  onSearch: (origin: string | null, destination: string | null, time: Date) => void;
+  onSearch: (origin: string | null, destination: string | null, time: Date, options: RouteOptions) => void;
   onSelectRoute: (which: 'fastest' | 'shaded') => void;
   onReset: () => void;
   searchOrigin: LatLng | null;
