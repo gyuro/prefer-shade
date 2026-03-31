@@ -78,6 +78,11 @@ export function useRouteSearch() {
 
     try {
       const roughBbox = expandBbox(pointsBbox([origin, destination]), 500);
+      const buildingTimeoutMs = (options.buildingTimeoutSecs ?? DEFAULT_BUILDINGS_TIMEOUT_MS / 1000) * 1000;
+      // Record when the building fetch started so we can apply the timeout from
+      // this point rather than from when routes arrive — Overpass is already
+      // in-flight while OSRM is being queried.
+      const buildingFetchStart = Date.now();
       const buildingsPromise = fetchBuildings(roughBbox);
 
       // ── Routes first (fast) ────────────────────────────────────────────────
@@ -88,9 +93,7 @@ export function useRouteSearch() {
       const emptyIndex = new ShadowIndex([]);
       const routePlaceholder = scoreRouteWithIndex(fastest, emptyIndex, 'FASTEST');
 
-      // Show fastest route immediately (blue); shadedRoute stays null until
-      // shadow data is fully computed — it will appear together with the overlay.
-      const buildingTimeoutMs = (options.buildingTimeoutSecs ?? DEFAULT_BUILDINGS_TIMEOUT_MS / 1000) * 1000;
+      // Show fastest route immediately; progress pill counts from now.
       const fetchStart = Date.now();
       setState((s) => ({ ...s, status: 'scoring', fastestRoute: routePlaceholder, shadedRoute: null, shadows: [], shadowPercent: 5 }));
 
@@ -106,11 +109,16 @@ export function useRouteSearch() {
       );
       const routeBbox = expandBbox(pointsBbox(allRoutePoints), 150);
 
+      // Remaining timeout = configured total minus time already spent fetching
+      // buildings. Ensures the user-configured duration is honoured end-to-end,
+      // not just from when routes arrive.
+      const remainingMs = Math.max(buildingTimeoutMs - (Date.now() - buildingFetchStart), 1000);
+
       const buildings: BuildingFeature[] = await withTimeout(
         buildingsPromise
           .then(() => fetchBuildings(routeBbox))
           .catch(() => []),
-        buildingTimeoutMs,
+        remainingMs,
         [],
       );
 
