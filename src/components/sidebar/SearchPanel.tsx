@@ -248,6 +248,7 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
   const [maxDetour, setMaxDetour] = useState(ROUTE_PRESETS.balanced.maxDetourPct);
   const [showOptions, setShowOptions] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const destRef = useRef<HTMLInputElement | null>(null);
   const lastFocusedField = useRef<'origin' | 'destination'>('destination');
 
@@ -273,11 +274,19 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
     setMaxDetour(ROUTE_PRESETS[p].maxDetourPct);
   };
 
+  // Auto-collapse the topbar when a result arrives; don't focus (avoids mobile keyboard)
   useEffect(() => {
-    if (!isLoading) {
+    if (variant === 'topbar' && hasResult) {
+      setCollapsed(true);
+    }
+  }, [hasResult, variant]);
+
+  // Auto-focus dest only when there's no result yet (e.g. fresh load or after clear)
+  useEffect(() => {
+    if (!isLoading && !hasResult) {
       requestAnimationFrame(() => destRef.current?.focus());
     }
-  }, [isLoading]);
+  }, [isLoading, hasResult]);
 
   const handleSwap = () => {
     const tmp = origin;
@@ -324,6 +333,7 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
     setIsNow(true);
     setDateTimeStr(toDateTimeLocal(new Date()));
     setShowTimePicker(false);
+    setCollapsed(false);
   };
 
   const canSearch =
@@ -332,6 +342,32 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
 
   // ── Topbar variant (mobile fixed top bar) ───────────────────────────────
   if (variant === 'topbar') {
+    // Collapsed: show a compact summary row — tap to re-open search
+    if (collapsed) {
+      return (
+        <div className="px-3 py-2">
+          <button
+            type="button"
+            onClick={() => {
+              setCollapsed(false);
+              requestAnimationFrame(() => destRef.current?.focus());
+            }}
+            className="w-full flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            <svg className="w-4 h-4 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            </svg>
+            <span className="flex-1 text-left truncate">
+              {dest || origin || 'Search again…'}
+            </span>
+            <svg className="w-4 h-4 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+          </button>
+        </div>
+      );
+    }
+
     return (
       <form onSubmit={handleSubmit} className="px-3 py-2 flex flex-col gap-1.5">
         {/* Origin row + swap button */}
