@@ -142,8 +142,8 @@ function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin,
           <RoutePolyline key="shaded" route={shadedRoute!} isSelected={selectedRoute === 'shaded'} zIndex={selectedRoute === 'shaded' ? 2 : 1} />
         </>
       ) : (
-        (shadedRoute ?? fastestRoute) && (
-          <RoutePolyline key="single" route={(shadedRoute ?? fastestRoute)!} isSelected zIndex={2} />
+        fastestRoute && (
+          <RoutePolyline key="single" route={fastestRoute} isSelected zIndex={2} />
         )
       )}
 
