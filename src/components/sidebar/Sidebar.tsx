@@ -41,19 +41,30 @@ function samplePolylineWaypoints(encodedPolyline: string, count: number): LatLng
   return result;
 }
 
-function buildGoogleMapsUrl(origin: LatLng, dest: LatLng, encodedPolyline?: string): string {
+function buildGoogleMapsUrl(origin: LatLng, dest: LatLng, routingWaypoints?: LatLng[], encodedPolyline?: string): string {
   const params = new URLSearchParams({
     api: '1',
     origin: `${origin.lat},${origin.lng}`,
     destination: `${dest.lat},${dest.lng}`,
     travelmode: 'walking',
   });
-  if (encodedPolyline) {
-    const wps = samplePolylineWaypoints(encodedPolyline, 4);
-    if (wps.length > 0) {
-      params.set('waypoints', wps.map((w) => `${w.lat},${w.lng}`).join('|'));
-    }
+
+  // Prefer the actual OSRM routing waypoints — these are the exact decision
+  // points used to steer the route onto shadier streets, so Google Maps will
+  // follow the same path.  Fall back to polyline sampling only when the shaded
+  // route has no custom waypoints (i.e. the fastest and shaded routes are the
+  // same, or shade optimisation was skipped).
+  const wps: LatLng[] =
+    routingWaypoints && routingWaypoints.length > 0
+      ? routingWaypoints
+      : encodedPolyline
+        ? samplePolylineWaypoints(encodedPolyline, 4)
+        : [];
+
+  if (wps.length > 0) {
+    params.set('waypoints', wps.map((w) => `${w.lat},${w.lng}`).join('|'));
   }
+
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
@@ -63,10 +74,10 @@ function statusLabel(status: string, hasPrelimRoute: boolean): string {
   return 'Working…';
 }
 
-function NavigateButton({ origin, dest, polyline }: { origin: LatLng; dest: LatLng; polyline?: string }) {
+function NavigateButton({ origin, dest, route }: { origin: LatLng; dest: LatLng; route: ScoredRoute }) {
   return (
     <a
-      href={buildGoogleMapsUrl(origin, dest, polyline)}
+      href={buildGoogleMapsUrl(origin, dest, route.waypoints, route.encodedPolyline)}
       target="_blank"
       rel="noopener noreferrer"
       className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
@@ -226,11 +237,11 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
               </div>
             )}
 
-            {hasResult && searchOrigin && searchDest && (
+            {hasResult && searchOrigin && searchDest && selectedRoute && (
               <NavigateButton
                 origin={searchOrigin}
                 dest={searchDest}
-                polyline={selectedRoute?.encodedPolyline}
+                route={selectedRoute}
               />
             )}
 
@@ -316,12 +327,12 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
           )}
 
           {/* Navigate */}
-          {hasResult && searchOrigin && searchDest && (
+          {hasResult && searchOrigin && searchDest && selectedRoute && (
             <div className="px-4 pt-3">
               <NavigateButton
                 origin={searchOrigin}
                 dest={searchDest}
-                polyline={selectedRoute?.encodedPolyline}
+                route={selectedRoute}
               />
             </div>
           )}

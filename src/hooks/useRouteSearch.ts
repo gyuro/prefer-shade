@@ -43,8 +43,10 @@ function hasBacktracking(encodedPolyline: string, origin: LatLng, destination: L
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  // Catch promise rejection so a failed buildings fetch degrades gracefully
+  // (no shadows) rather than aborting the whole search with an error.
   return Promise.race([
-    promise,
+    promise.catch(() => fallback),
     new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
   ]);
 }
