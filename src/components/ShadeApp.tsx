@@ -18,9 +18,10 @@ export default function ShadeApp() {
   const [searchDest, setSearchDest] = useState<LatLng | null>(null);
   // Coordinate from a map long-press — forwarded to whichever search field is focused
   const [mapPickCoord, setMapPickCoord] = useState<LatLng | null>(null);
+  const [searchTime, setSearchTime] = useState<Date | null>(null);
 
   const weatherCoord = searchDest ?? searchOrigin ?? location;
-  const { weather, loading: weatherLoading } = useWeather(weatherCoord);
+  const { weather, loading: weatherLoading } = useWeather(weatherCoord, searchTime);
 
   const center = location ?? DEFAULT_CENTER;
 
@@ -33,6 +34,7 @@ export default function ShadeApp() {
         if (!dest) throw new Error('Could not determine your destination.');
         setSearchOrigin(origin);
         setSearchDest(dest);
+        setSearchTime(time);
         await routeSearch.search(origin, dest, time, options, weather);
       } catch (err) {
         console.error('Search error:', err);
@@ -45,6 +47,7 @@ export default function ShadeApp() {
     routeSearch.reset();
     setSearchOrigin(null);
     setSearchDest(null);
+    setSearchTime(null);
   }, [routeSearch]);
 
   const selectedRoute =

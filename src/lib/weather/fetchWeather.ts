@@ -59,46 +59,95 @@ function buildAdvisory(
   return null;
 }
 
+function buildResult(
+  temperature: number,
+  apparentTemperature: number,
+  precipitation: number,
+  cloudcover: number,
+  weathercode: number,
+  windspeed: number,
+  lat: number,
+  lng: number,
+  date: Date,
+): WeatherData {
+  const sun = getSunPosition(date, lat, lng);
+  const rawUV = sun.isDay ? 11 * Math.sin(Math.max(sun.altitude, 0)) : 0;
+  const uvIndex = Math.round(rawUV * (1 - cloudcover / 100) * 10) / 10;
+
+  const { emoji, text: conditionText } = interpret(weathercode);
+  const feelsLike = Math.round(apparentTemperature);
+  const relevance = calcShadeRelevance(cloudcover, precipitation, uvIndex, feelsLike);
+
+  return {
+    temperature: Math.round(temperature),
+    feelsLike,
+    precipitation,
+    cloudCover: cloudcover,
+    windSpeed: Math.round(windspeed),
+    weatherCode: weathercode,
+    uvIndex,
+    emoji,
+    conditionText,
+    shadeRelevance: relevance,
+    advisory: buildAdvisory(relevance, uvIndex, feelsLike, precipitation),
+  };
+}
+
 /**
- * Fetch current weather from Open-Meteo (free, no API key).
- * UV index is computed from the current sun altitude + cloud cover
- * so it's accurate for the exact moment of the search.
+ * Fetch weather from Open-Meteo (free, no API key).
+ * - Within 30 min of now: uses /current endpoint.
+ * - Future/past time: uses hourly forecast for the matching hour.
+ * UV index is always computed from the exact date's sun altitude + cloud cover.
  */
 export async function fetchWeather(lat: number, lng: number, date: Date): Promise<WeatherData | null> {
   try {
-    const url =
-      `https://api.open-meteo.com/v1/forecast` +
-      `?latitude=${lat}&longitude=${lng}` +
-      `&current=temperature_2m,apparent_temperature,precipitation,cloudcover,weathercode,windspeed_10m` +
-      `&wind_speed_unit=kmh&timezone=auto`;
+    const diffMs = date.getTime() - Date.now();
+    const isCurrent = Math.abs(diffMs) < 30 * 60 * 1000;
 
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const data = await res.json();
-    const c = data.current;
+    if (isCurrent) {
+      const url =
+        `https://api.open-meteo.com/v1/forecast` +
+        `?latitude=${lat}&longitude=${lng}` +
+        `&current=temperature_2m,apparent_temperature,precipitation,cloudcover,weathercode,windspeed_10m` +
+        `&wind_speed_unit=kmh&timezone=auto`;
 
-    // Compute UV from sun altitude × cloud transmittance
-    const sun = getSunPosition(date, lat, lng);
-    const rawUV = sun.isDay ? 11 * Math.sin(Math.max(sun.altitude, 0)) : 0;
-    const uvIndex = Math.round(rawUV * (1 - c.cloudcover / 100) * 10) / 10;
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const data = await res.json();
+      const c = data.current;
 
-    const { emoji, text: conditionText } = interpret(c.weathercode);
-    const feelsLike = Math.round(c.apparent_temperature);
-    const relevance = calcShadeRelevance(c.cloudcover, c.precipitation, uvIndex, feelsLike);
+      return buildResult(
+        c.temperature_2m, c.apparent_temperature, c.precipitation,
+        c.cloudcover, c.weathercode, c.windspeed_10m,
+        lat, lng, date,
+      );
+    } else {
+      // Use hourly forecast — Open-Meteo supports up to 16 days ahead
+      const dateStr = date.toISOString().slice(0, 10);
+      const url =
+        `https://api.open-meteo.com/v1/forecast` +
+        `?latitude=${lat}&longitude=${lng}` +
+        `&hourly=temperature_2m,apparent_temperature,precipitation,cloudcover,weathercode,windspeed_10m` +
+        `&wind_speed_unit=kmh&timezone=auto` +
+        `&start_date=${dateStr}&end_date=${dateStr}`;
 
-    return {
-      temperature: Math.round(c.temperature_2m),
-      feelsLike,
-      precipitation: c.precipitation,
-      cloudCover: c.cloudcover,
-      windSpeed: Math.round(c.windspeed_10m),
-      weatherCode: c.weathercode,
-      uvIndex,
-      emoji,
-      conditionText,
-      shadeRelevance: relevance,
-      advisory: buildAdvisory(relevance, uvIndex, feelsLike, c.precipitation),
-    };
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const data = await res.json();
+      const h = data.hourly;
+      if (!h?.time?.length) return null;
+
+      // Find the index whose hour best matches the requested time
+      const targetHour = date.getHours();
+      const idx = h.time.findIndex((t: string) => new Date(t).getHours() === targetHour) ?? 0;
+      const i = idx >= 0 ? idx : 0;
+
+      return buildResult(
+        h.temperature_2m[i], h.apparent_temperature[i], h.precipitation[i],
+        h.cloudcover[i], h.weathercode[i], h.windspeed_10m[i],
+        lat, lng, date,
+      );
+    }
   } catch {
     return null;
   }
