@@ -106,21 +106,12 @@ export default function ShadeApp() {
         weatherLoading={weatherLoading}
       />
 
-      {/* Shadow map loading progress pill */}
-      {routeSearch.shadowPercent !== null && (
+      {/* Shadow map loading pill */}
+      {routeSearch.shadowLoading && (
         <div className="absolute top-36 md:top-5 left-1/2 md:left-[58%] -translate-x-1/2 z-40 pointer-events-none">
-          <div className="bg-gray-900/85 backdrop-blur-sm text-white text-xs px-3 py-2 rounded-full shadow-lg flex items-center gap-2.5">
+          <div className="bg-gray-900/85 backdrop-blur-sm text-white text-xs px-3 py-2 rounded-full shadow-lg flex items-center gap-2">
             <span className="opacity-75 text-sm">🌘</span>
-            <span className="opacity-80 whitespace-nowrap">Loading shadow map</span>
-            <div className="w-20 h-1.5 bg-white/20 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-white rounded-full transition-all duration-200 ease-out"
-                style={{ width: `${routeSearch.shadowPercent}%` }}
-              />
-            </div>
-            <span className="tabular-nums w-7 text-right opacity-90 font-medium">
-              {routeSearch.shadowPercent}%
-            </span>
+            <span className="opacity-80 whitespace-nowrap">Loading shadow map…</span>
           </div>
         </div>
       )}

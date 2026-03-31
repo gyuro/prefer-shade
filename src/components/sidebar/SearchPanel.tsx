@@ -248,7 +248,6 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
   const [maxDetour, setMaxDetour] = useState(ROUTE_PRESETS.balanced.maxDetourPct);
   const [showOptions, setShowOptions] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [buildingTimeout, setBuildingTimeout] = useState(ROUTE_PRESETS.balanced.buildingTimeoutSecs);
   const destRef = useRef<HTMLInputElement | null>(null);
   const lastFocusedField = useRef<'origin' | 'destination'>('destination');
 
@@ -265,7 +264,6 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
   const handlePreset = (p: RoutePreset) => {
     setPreset(p);
     setMaxDetour(ROUTE_PRESETS[p].maxDetourPct);
-    setBuildingTimeout(ROUTE_PRESETS[p].buildingTimeoutSecs);
   };
 
   useEffect(() => {
@@ -303,7 +301,6 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
     const options: RouteOptions = {
       maxDetourPct: maxDetour,
       minShadeGain: ROUTE_PRESETS[preset].minShadeGain,
-      buildingTimeoutSecs: buildingTimeout,
     };
     onSearch(
       origin === GPS ? null : (origin.trim() || null),
@@ -497,17 +494,6 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
                 <span className="text-xs text-gray-600 w-8 text-right">+{maxDetour}%</span>
               </div>
             )}
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500 whitespace-nowrap">Shadow wait</span>
-              <input
-                type="range" min={5} max={30} step={5}
-                value={buildingTimeout}
-                onChange={(e) => setBuildingTimeout(Number(e.target.value))}
-                disabled={isLoading}
-                className="flex-1 accent-green-500"
-              />
-              <span className="text-xs text-gray-600 w-6 text-right">{buildingTimeout}s</span>
-            </div>
           </div>
         )}
 
@@ -669,25 +655,6 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
             )}
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-gray-500">
-              Shadow data wait
-              <span className="ml-1 font-normal text-gray-400">(longer for wide/hilly areas)</span>
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="range" min={5} max={30} step={5}
-                value={buildingTimeout}
-                onChange={(e) => setBuildingTimeout(Number(e.target.value))}
-                disabled={isLoading}
-                className="flex-1 accent-green-500"
-              />
-              <span className="text-xs text-gray-600 w-8 text-right">{buildingTimeout}s</span>
-            </div>
-            <p className="text-xs text-gray-400">
-              Route appears immediately; shadow overlay loads within this limit.
-            </p>
-          </div>
         </div>
       )}
     </form>

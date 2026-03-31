@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { decode } from '@googlemaps/polyline-codec';
 import { fetchRoutes } from '@/lib/routing/fetchRoutes';
 import { scoreRouteWithIndex } from '@/lib/routing/scoreRoute';
@@ -10,21 +10,15 @@ import { castBuildingShadow, getSunPosition } from '@/lib/shadow';
 import { ShadowIndex } from '@/lib/shadow/shadowIndex';
 import { expandBbox, pointsBbox } from '@/lib/utils/geo';
 import type { Feature, Polygon } from 'geojson';
-import type { BuildingFeature } from '@/types/building';
 import type { LatLng, RouteOptions, RouteSearchState, ScoredRoute } from '@/types/route';
 import { ROUTE_PRESETS } from '@/types/route';
 import type { WeatherData } from '@/lib/weather/fetchWeather';
 
 interface ExtendedState extends RouteSearchState {
   shadows: Feature<Polygon>[];
-  /**
-   * 0–100 while shadow data is loading; null when idle or complete.
-   * Drives the progress pill shown on the map.
-   */
-  shadowPercent: number | null;
+  /** true while Overpass building data is still loading */
+  shadowLoading: boolean;
 }
-
-const DEFAULT_BUILDINGS_TIMEOUT_MS = 10_000;
 
 function hasBacktracking(encodedPolyline: string, origin: LatLng, destination: LatLng): boolean {
   const coords = decode(encodedPolyline, 5);
@@ -41,13 +35,6 @@ function hasBacktracking(encodedPolyline: string, origin: LatLng, destination: L
   return false;
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
-  return Promise.race([
-    promise.catch(() => fallback),
-    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
-  ]);
-}
-
 const IDLE: ExtendedState = {
   status: 'idle',
   fastestRoute: null,
@@ -55,16 +42,11 @@ const IDLE: ExtendedState = {
   selectedRoute: 'shaded',
   error: null,
   shadows: [],
-  shadowPercent: null,
+  shadowLoading: false,
 };
 
 export function useRouteSearch() {
   const [state, setState] = useState<ExtendedState>(IDLE);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const stopTimer = useCallback(() => {
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-  }, []);
 
   const search = useCallback(async (
     origin: LatLng,
@@ -73,16 +55,11 @@ export function useRouteSearch() {
     options: RouteOptions = ROUTE_PRESETS.balanced,
     weather?: WeatherData | null,
   ) => {
-    stopTimer();
-    setState((s) => ({ ...s, status: 'routing', fastestRoute: null, shadedRoute: null, shadows: [], error: null, shadowPercent: null }));
+    setState((s) => ({ ...s, status: 'routing', fastestRoute: null, shadedRoute: null, shadows: [], error: null, shadowLoading: false }));
 
     try {
+      // Start building fetch immediately (parallel with route fetch)
       const roughBbox = expandBbox(pointsBbox([origin, destination]), 500);
-      const buildingTimeoutMs = (options.buildingTimeoutSecs ?? DEFAULT_BUILDINGS_TIMEOUT_MS / 1000) * 1000;
-      // Record when the building fetch started so we can apply the timeout from
-      // this point rather than from when routes arrive — Overpass is already
-      // in-flight while OSRM is being queried.
-      const buildingFetchStart = Date.now();
       const buildingsPromise = fetchBuildings(roughBbox);
 
       // ── Routes first (fast) ────────────────────────────────────────────────
@@ -93,15 +70,8 @@ export function useRouteSearch() {
       const emptyIndex = new ShadowIndex([]);
       const routePlaceholder = scoreRouteWithIndex(fastest, emptyIndex, 'FASTEST');
 
-      // Show fastest route immediately; progress pill counts from now.
-      const fetchStart = Date.now();
-      setState((s) => ({ ...s, status: 'scoring', fastestRoute: routePlaceholder, shadedRoute: null, shadows: [], shadowPercent: 5 }));
-
-      stopTimer();
-      timerRef.current = setInterval(() => {
-        const pct = Math.min(5 + Math.round(70 * (Date.now() - fetchStart) / buildingTimeoutMs), 74);
-        setState((s) => s.status === 'scoring' ? { ...s, shadowPercent: pct } : s);
-      }, 200);
+      // Show fastest route immediately while buildings finish loading
+      setState((s) => ({ ...s, status: 'scoring', fastestRoute: routePlaceholder, shadedRoute: null, shadows: [], shadowLoading: true }));
 
       // ── Precise bbox from actual route polylines ───────────────────────────
       const allRoutePoints: LatLng[] = candidates.flatMap((c) =>
@@ -109,21 +79,12 @@ export function useRouteSearch() {
       );
       const routeBbox = expandBbox(pointsBbox(allRoutePoints), 150);
 
-      // Remaining timeout = configured total minus time already spent fetching
-      // buildings. Ensures the user-configured duration is honoured end-to-end,
-      // not just from when routes arrive.
-      const remainingMs = Math.max(buildingTimeoutMs - (Date.now() - buildingFetchStart), 1000);
-
-      const buildings: BuildingFeature[] = await withTimeout(
-        buildingsPromise
-          .then(() => fetchBuildings(routeBbox))
-          .catch(() => []),
-        remainingMs,
-        [],
-      );
-
-      stopTimer();
-      setState((s) => ({ ...s, shadowPercent: 80 }));
+      // Wait for roughBbox to complete (already in-flight), then fetch precise
+      // bbox — which is an instant cache hit because roughBbox covers it.
+      // No timeout: we always wait for real data so shadows are never missing.
+      const buildings = await buildingsPromise
+        .then(() => fetchBuildings(routeBbox))
+        .catch(() => fetchBuildings(routeBbox).catch(() => []));
 
       // ── Cast shadow polygons ───────────────────────────────────────────────
       const now = time ?? new Date();
@@ -145,12 +106,11 @@ export function useRouteSearch() {
         if (alt.shadeScore >= scoredShaded.shadeScore) scoredShaded = alt;
       }
 
-      // Shadow overlay + initial scored routes are ready — mark done so the
-      // progress pill disappears at the exact moment shadows appear on the map.
       const initialSelectedRoute =
         scoredShaded.encodedPolyline !== scoredFastest.encodedPolyline ||
         scoredShaded.shadeScore > scoredFastest.shadeScore ? 'shaded' : 'fastest';
 
+      // Mark done — shadow overlay and loading pill update together
       setState({
         status: 'done',
         fastestRoute: scoredFastest,
@@ -158,14 +118,12 @@ export function useRouteSearch() {
         selectedRoute: weather?.shadeRelevance === 'none' ? 'fastest' : initialSelectedRoute,
         error: null,
         shadows,
-        shadowPercent: null,
+        shadowLoading: false,
       });
 
       if (weather?.shadeRelevance === 'none') return;
 
       // ── Waypoint optimisation (silent background refinement) ──────────────
-      // Runs after the map is already showing shadows. If a better shaded route
-      // is found it silently replaces shadedRoute without resetting progress.
       const waypoints = optimizeWaypoints(fastest.encodedPolyline, index);
       const weatherBoost        = weather?.shadeRelevance === 'high' ? 1.3 : 1;
       const weatherGainDiscount = weather?.shadeRelevance === 'high' ? 0.7 : 1;
@@ -193,24 +151,21 @@ export function useRouteSearch() {
         } catch { /* Waypoint route failed — keep initial scored route */ }
       }
     } catch (err) {
-      stopTimer();
-      setState({ status: 'error', fastestRoute: null, shadedRoute: null, selectedRoute: 'shaded', error: err instanceof Error ? err.message : String(err), shadows: [], shadowPercent: null });
+      setState({ status: 'error', fastestRoute: null, shadedRoute: null, selectedRoute: 'shaded', error: err instanceof Error ? err.message : String(err), shadows: [], shadowLoading: false });
     }
-  }, [stopTimer]);
+  }, []);
 
   const selectRoute = useCallback((which: 'fastest' | 'shaded') => {
     setState((s) => ({ ...s, selectedRoute: which }));
   }, []);
 
   const setError = useCallback((msg: string) => {
-    stopTimer();
     setState({ ...IDLE, status: 'error', error: msg });
-  }, [stopTimer]);
+  }, []);
 
   const reset = useCallback(() => {
-    stopTimer();
     setState(IDLE);
-  }, [stopTimer]);
+  }, []);
 
   return { ...state, search, selectRoute, reset, setError };
 }
