@@ -3,7 +3,7 @@ import { ShadowIndex } from '@/lib/shadow/shadowIndex';
 import type { Feature, Polygon } from 'geojson';
 import type { RouteCandidate, ScoredRoute } from '@/types/route';
 
-/** Sample a point every N meters along the route for shade checks */
+/** Default sample interval for route scoring (high accuracy). */
 const SAMPLE_M = 6;
 const DEG_TO_RAD = Math.PI / 180;
 
@@ -18,12 +18,15 @@ function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): num
 }
 
 /**
- * Walk the decoded polyline, checking a sample point every SAMPLE_M metres.
+ * Walk the decoded polyline, checking a sample point every sampleM metres.
  * No Turf calls — pure arithmetic + ShadowIndex lookups.
+ * Use a larger sampleM (e.g. 20) for overview charts where exact accuracy
+ * is less important than speed.
  */
 export function scorePolyline(
   encodedPolyline: string,
-  index: ShadowIndex
+  index: ShadowIndex,
+  sampleM = SAMPLE_M
 ): { shadeScore: number; shadedDistanceMeters: number; totalDistanceMeters: number } {
   const raw = decode(encodedPolyline, 5); // [[lat, lng]]
   if (raw.length < 2) return { shadeScore: 0, shadedDistanceMeters: 0, totalDistanceMeters: 0 };
@@ -31,7 +34,7 @@ export function scorePolyline(
   let totalSamples = 0;
   let shadedSamples = 0;
   let totalDistance = 0;
-  let distToNextSample = SAMPLE_M; // metres remaining until the next sample point
+  let distToNextSample = sampleM; // metres remaining until the next sample point
 
   for (let i = 1; i < raw.length; i++) {
     const lat1 = raw[i - 1][0], lng1 = raw[i - 1][1];
@@ -43,7 +46,7 @@ export function scorePolyline(
     let walked = 0; // metres walked into this segment so far
     while (walked + distToNextSample <= segLen) {
       walked += distToNextSample;
-      distToNextSample = SAMPLE_M;
+      distToNextSample = sampleM;
       const t = walked / segLen;
       totalSamples++;
       if (index.isInShade(lat1 + t * (lat2 - lat1), lng1 + t * (lng2 - lng1))) shadedSamples++;

@@ -26,12 +26,15 @@ export function shadeLabel(score: number): { label: string; icon: string } {
 }
 
 /**
- * Compute shade score per hour using the fast ShadowIndex pipeline.
- * Buildings are fetched once (cached). Shadow polygons are recast per hour
- * using inline math. Scoring uses pure point-sampling — no Turf in the loop.
+ * Compute shade score per hour for the given route.
  *
- * Sun position and building bbox are derived from the route itself, not the
- * user's GPS, so the timeline is correct even when searching distant cities.
+ * Performance notes:
+ * - Buildings are fetched once (usually a cache hit from the route-search fetch).
+ * - Shadow polygons are recast per hour using fast flat-earth math.
+ * - The loop yields to the browser event loop between each hour so the UI
+ *   (buttons, maps) stays responsive throughout the computation.
+ * - Polyline scoring uses a coarser 20 m sample interval (vs 6 m for route
+ *   scoring) since the timeline chart only needs approximate values.
  */
 export async function computeShadeTimeline(
   encodedPolyline: string,
@@ -40,16 +43,19 @@ export async function computeShadeTimeline(
   const routeCoords = decode(encodedPolyline, 5).map(([lat, lng]) => ({ lat, lng }));
   if (routeCoords.length === 0) return [];
 
-  // Use the route midpoint as the reference for sun position and bbox
   const mid = routeCoords[Math.floor(routeCoords.length / 2)];
-  const bbox = expandBbox(pointsBbox(routeCoords), 300);
+  // Use a 500 m expansion — matches the rough bbox from useRouteSearch, maximising
+  // the chance that fetchBuildings returns a cached result (no second Overpass call).
+  const bbox = expandBbox(pointsBbox(routeCoords), 500);
 
-  // Buildings are cached — this is usually a memory hit, not a network call
   const buildings = await fetchBuildings(bbox);
 
   const results: HourlyShade[] = [];
 
   for (let hour = 5; hour <= 21; hour++) {
+    // Yield to the browser event loop so clicks/animations stay responsive.
+    await new Promise<void>((r) => setTimeout(r, 0));
+
     const d = new Date(date);
     d.setHours(hour, 0, 0, 0);
 
@@ -60,14 +66,14 @@ export async function computeShadeTimeline(
       continue;
     }
 
-    // Cast shadows (fast: inline displacement, no turf.destination)
     const shadows = buildings
       .map((b) => castBuildingShadow(b, sun))
       .filter((s): s is NonNullable<typeof s> => s !== null);
 
-    // Build index and score (fast: point sampling, no polygon intersection)
     const index = new ShadowIndex(shadows);
-    const { shadeScore } = scorePolyline(encodedPolyline, index);
+    // 20 m sample interval — 3× faster than the 6 m used for route scoring,
+    // accurate enough for the per-hour bar chart.
+    const { shadeScore } = scorePolyline(encodedPolyline, index, 20);
     results.push({ hour, score: shadeScore, isNight: false });
   }
 
