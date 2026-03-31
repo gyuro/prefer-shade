@@ -13,9 +13,10 @@ const DEFAULT_CENTER: LatLng = { lat: 37.7749, lng: -122.4194 };
 export default function ShadeApp() {
   const { location, isLocating } = useUserLocation();
   const routeSearch = useRouteSearch();
-  // Track the exact coords used for the last search so markers match the route
   const [searchOrigin, setSearchOrigin] = useState<LatLng | null>(null);
   const [searchDest, setSearchDest] = useState<LatLng | null>(null);
+  // Coordinate from a map long-press — forwarded to whichever search field is focused
+  const [mapPickCoord, setMapPickCoord] = useState<LatLng | null>(null);
 
   const center = location ?? DEFAULT_CENTER;
 
@@ -58,6 +59,7 @@ export default function ShadeApp() {
         destination={searchDest}
         center={center}
         userLocation={location}
+        onLongPress={(coord) => setMapPickCoord({ ...coord })}
       />
 
       <Sidebar
@@ -69,6 +71,7 @@ export default function ShadeApp() {
         searchOrigin={searchOrigin}
         searchDest={searchDest}
         selectedRoute={selectedRoute}
+        mapPickCoord={mapPickCoord}
       />
 
       {isLocating && (

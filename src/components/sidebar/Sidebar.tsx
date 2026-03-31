@@ -19,6 +19,7 @@ interface Props {
   searchOrigin: LatLng | null;
   searchDest: LatLng | null;
   selectedRoute: ScoredRoute | null;
+  mapPickCoord?: LatLng | null;
 }
 
 function samplePolylineWaypoints(encodedPolyline: string, count: number): LatLng[] {
@@ -73,7 +74,7 @@ function NavigateButton({ origin, dest, polyline }: { origin: LatLng; dest: LatL
   );
 }
 
-export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, onReset, searchOrigin, searchDest, selectedRoute }: Props) {
+export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, onReset, searchOrigin, searchDest, selectedRoute, mapPickCoord }: Props) {
   // false = peeked (summary only), true = fully open
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -114,6 +115,7 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
           onReset={onReset}
           hasResult={hasResult}
           variant="topbar"
+          mapPickCoord={mapPickCoord}
         />
       </div>
 
@@ -253,6 +255,7 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
             onSearch={onSearch}
             onReset={onReset}
             hasResult={hasResult}
+            mapPickCoord={mapPickCoord}
           />
         </div>
 

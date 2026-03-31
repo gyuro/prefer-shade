@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
-import { ROUTE_PRESETS, type RouteOptions, type RoutePreset } from '@/types/route';
+import { reverseGeocodeLatLng } from '@/lib/utils/geocode';
+import { ROUTE_PRESETS, type RouteOptions, type RoutePreset, type LatLng } from '@/types/route';
 
 /** Sentinel stored in field state when GPS mode is active for that field */
 const GPS = '__GPS__';
@@ -52,6 +53,8 @@ interface Props {
    * 'topbar'            — compact two-field bar for mobile top strip
    */
   variant?: 'sidebar' | 'topbar';
+  /** Coordinate picked by long-pressing the map — fills whichever field was last focused */
+  mapPickCoord?: LatLng | null;
 }
 
 interface FieldProps {
@@ -61,6 +64,7 @@ interface FieldProps {
   onChange: (v: string) => void;
   onGps: () => void;
   onClearGps: () => void;
+  onFieldFocus?: () => void;
   placeholder: string;
   hasGps: boolean;
   disabled: boolean;
@@ -69,7 +73,7 @@ interface FieldProps {
 }
 
 function LocationField({
-  label, icon, value, onChange, onGps, onClearGps,
+  label, icon, value, onChange, onGps, onClearGps, onFieldFocus,
   placeholder, hasGps, disabled, autoFocus, inputRef,
 }: FieldProps) {
   const isGpsMode = value === GPS;
@@ -168,7 +172,7 @@ function LocationField({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            onFocus={() => { if (suggestions.length > 0) setOpen(true); }}
+            onFocus={() => { onFieldFocus?.(); if (suggestions.length > 0) setOpen(true); }}
             placeholder={placeholder}
             disabled={disabled}
             autoComplete="off"
@@ -224,13 +228,25 @@ const PRESET_META: Record<RoutePreset, { label: string; sub: string }> = {
   shade:    { label: 'Max Shade', sub: 'Up to +35%' },
 };
 
-export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasResult, variant = 'sidebar' }: Props) {
+export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasResult, variant = 'sidebar', mapPickCoord }: Props) {
   const [origin, setOrigin] = useState('');
   const [dest, setDest] = useState('');
   const [dateTimeStr, setDateTimeStr] = useState(() => toDateTimeLocal(new Date()));
   const [preset, setPreset] = useState<RoutePreset>('balanced');
   const [maxDetour, setMaxDetour] = useState(ROUTE_PRESETS.balanced.maxDetourPct);
   const destRef = useRef<HTMLInputElement | null>(null);
+  // Track which field was last focused so map long-press knows where to put the coordinate
+  const lastFocusedField = useRef<'origin' | 'destination'>('destination');
+
+  // When the map sends a picked coordinate, reverse-geocode it into the focused field
+  useEffect(() => {
+    if (!mapPickCoord) return;
+    const field = lastFocusedField.current;
+    const setter = field === 'origin' ? setOrigin : setDest;
+    setter('Locating…');
+    reverseGeocodeLatLng(mapPickCoord.lat, mapPickCoord.lng).then(setter);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapPickCoord]);
 
   const handlePreset = (p: RoutePreset) => {
     setPreset(p);
@@ -284,6 +300,7 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
           onChange={setOrigin}
           onGps={() => setOrigin(GPS)}
           onClearGps={() => setOrigin('')}
+          onFieldFocus={() => { lastFocusedField.current = 'origin'; }}
           placeholder={hasGpsLocation ? 'Current location' : 'Starting point'}
           hasGps={hasGpsLocation}
           disabled={isLoading}
@@ -297,6 +314,7 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
               onChange={setDest}
               onGps={() => setDest(GPS)}
               onClearGps={() => setDest('')}
+              onFieldFocus={() => { lastFocusedField.current = 'destination'; }}
               placeholder="Where to?"
               hasGps={hasGpsLocation}
               disabled={isLoading}
@@ -350,6 +368,7 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
           onChange={setOrigin}
           onGps={() => setOrigin(GPS)}
           onClearGps={() => setOrigin('')}
+          onFieldFocus={() => { lastFocusedField.current = 'origin'; }}
           placeholder={hasGpsLocation ? 'Current location' : 'Starting point'}
           hasGps={hasGpsLocation}
           disabled={isLoading}
@@ -366,6 +385,7 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
           onChange={setDest}
           onGps={() => setDest(GPS)}
           onClearGps={() => setDest('')}
+          onFieldFocus={() => { lastFocusedField.current = 'destination'; }}
           placeholder="Where do you want to go?"
           hasGps={hasGpsLocation}
           disabled={isLoading}
