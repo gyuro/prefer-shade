@@ -49,6 +49,7 @@ export default function ShadeApp() {
         setSearchOrigin(origin);
         setSearchDest(dest);
         setSearchTime(time);
+        setMapPickCoord(null);
 
         // Fetch weather directly for the chosen dest+time so the selected date
         // is always applied. Using the hook's `weather` value here would be stale
@@ -68,6 +69,7 @@ export default function ShadeApp() {
     setSearchOrigin(null);
     setSearchDest(null);
     setSearchTime(null);
+    setMapPickCoord(null);
   }, [routeSearch]);
 
   const selectedRoute =
@@ -86,6 +88,7 @@ export default function ShadeApp() {
         destination={searchDest}
         center={center}
         userLocation={location}
+        pickedLocation={mapPickCoord}
         onLongPress={(coord) => {
           setMapPickCoord({ ...coord });
           showToast('📍 Location picked');

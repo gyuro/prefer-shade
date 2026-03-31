@@ -76,10 +76,11 @@ interface MapContentProps {
   origin: LatLng | null;
   destination: LatLng | null;
   userLocation: LatLng | null;
+  pickedLocation?: LatLng | null;
   onLongPress?: (coord: LatLng) => void;
 }
 
-function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin, destination, userLocation, onLongPress }: MapContentProps) {
+function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin, destination, userLocation, pickedLocation, onLongPress }: MapContentProps) {
   const { current: map } = useMap();
   // Track both route polylines so fitBounds re-fires when the shaded route
   // arrives with a different geometry after shadow computation completes.
@@ -147,14 +148,13 @@ function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin,
         )
       )}
 
-      <RouteMarkers origin={origin} destination={destination} userLocation={userLocation} />
+      <RouteMarkers origin={origin} destination={destination} userLocation={userLocation} pickedLocation={pickedLocation} />
     </>
   );
 }
 
 interface Props extends MapContentProps {
   center: LatLng;
-  onLongPress?: (coord: LatLng) => void;
 }
 
 export function MapContainer({ center, ...contentProps }: Props) {

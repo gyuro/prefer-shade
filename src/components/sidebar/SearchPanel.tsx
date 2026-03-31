@@ -251,10 +251,17 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
   const destRef = useRef<HTMLInputElement | null>(null);
   const lastFocusedField = useRef<'origin' | 'destination'>('destination');
 
-  // When the map sends a picked coordinate, reverse-geocode it into the focused field
+  // When the map sends a picked coordinate, reverse-geocode it into the best field.
+  // Priority: fill the empty field first (dest preferred), then fall back to
+  // whichever field the user last explicitly focused.
   useEffect(() => {
     if (!mapPickCoord) return;
-    const field = lastFocusedField.current;
+    const destEmpty = !dest.trim();
+    const originEmpty = !origin.trim() && origin !== GPS;
+    let field: 'origin' | 'destination';
+    if (destEmpty) field = 'destination';
+    else if (originEmpty) field = 'origin';
+    else field = lastFocusedField.current;
     const setter = field === 'origin' ? setOrigin : setDest;
     setter('Locating…');
     reverseGeocodeLatLng(mapPickCoord.lat, mapPickCoord.lng).then(setter);

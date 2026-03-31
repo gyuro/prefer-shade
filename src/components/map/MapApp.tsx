@@ -13,6 +13,7 @@ interface Props {
   destination: LatLng | null;
   center: LatLng;
   userLocation: LatLng | null;
+  pickedLocation?: LatLng | null;
   onLongPress?: (coord: LatLng) => void;
 }
 
