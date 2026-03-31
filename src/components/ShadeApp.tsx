@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/sidebar/Sidebar';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useRouteSearch } from '@/hooks/useRouteSearch';
 import { useWeather } from '@/hooks/useWeather';
+import { fetchWeather } from '@/lib/weather/fetchWeather';
 import { geocodeAddress } from '@/lib/utils/geocode';
 import type { LatLng, RouteOptions } from '@/types/route';
 
@@ -37,19 +38,29 @@ export default function ShadeApp() {
   const handleSearch = useCallback(
     async (originText: string | null, destinationText: string | null, time: Date, options: RouteOptions) => {
       try {
-        const origin = originText ? await geocodeAddress(originText) : location;
+        // Geocode origin + dest in parallel
+        const [origin, dest] = await Promise.all([
+          originText ? geocodeAddress(originText) : Promise.resolve(location),
+          destinationText ? geocodeAddress(destinationText) : Promise.resolve(location),
+        ]);
         if (!origin) throw new Error('Could not determine your starting location.');
-        const dest = destinationText ? await geocodeAddress(destinationText) : location;
         if (!dest) throw new Error('Could not determine your destination.');
+
         setSearchOrigin(origin);
         setSearchDest(dest);
         setSearchTime(time);
-        await routeSearch.search(origin, dest, time, options, weather);
+
+        // Fetch weather directly for the chosen dest+time so the selected date
+        // is always applied. Using the hook's `weather` value here would be stale
+        // because setSearchTime() only schedules a re-render, not an immediate fetch.
+        const freshWeather = await fetchWeather(dest.lat, dest.lng, time);
+
+        await routeSearch.search(origin, dest, time, options, freshWeather);
       } catch (err) {
         routeSearch.setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
       }
     },
-    [location, routeSearch, weather]
+    [location, routeSearch]
   );
 
   const handleReset = useCallback(() => {

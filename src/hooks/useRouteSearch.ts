@@ -71,6 +71,7 @@ export function useRouteSearch() {
     setState((s) => ({ ...s, status: 'routing', fastestRoute: null, shadedRoute: null, shadows: [], error: null }));
 
     try {
+      // Rough bbox from endpoints — lets building fetch start before routes arrive
       const roughBbox = expandBbox(pointsBbox([origin, destination]), 500);
 
       // ── Fire buildings fetch immediately — it's the slow one (Overpass API) ──
@@ -93,13 +94,25 @@ export function useRouteSearch() {
         shadows: [],
       }));
 
-      // ── Wait for buildings — cap at user-configured timeout to stay responsive ──
+      // ── Precise bbox from actual route polylines ───────────────────────────
+      // The rough bbox (origin→dest straight line) misses buildings along the
+      // shaded route's detours. After routes arrive we know the exact paths.
+      const allRoutePoints: LatLng[] = candidates.flatMap((c) =>
+        decode(c.encodedPolyline, 5).map(([lat, lng]) => ({ lat, lng }))
+      );
+      const routeBbox = expandBbox(pointsBbox(allRoutePoints), 150);
+
+      // fetchBuildings returns cached data instantly if roughBbox already covers
+      // routeBbox; otherwise fires a fresh Overpass query for the exact area.
       const buildingTimeoutMs = (options.buildingTimeoutSecs ?? DEFAULT_BUILDINGS_TIMEOUT_MS / 1000) * 1000;
       const buildings: BuildingFeature[] = await withTimeout(
-        buildingsPromise,
+        fetchBuildings(routeBbox),
         buildingTimeoutMs,
         [],
       );
+
+      // Rough fetch is no longer needed — cancel its effect by ignoring it
+      void buildingsPromise;
 
       // ── Cast shadow polygons ────────────────────────────────────────────────
       const now = time ?? new Date();

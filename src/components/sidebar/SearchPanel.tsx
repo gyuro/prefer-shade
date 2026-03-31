@@ -358,8 +358,8 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
           </button>
         </div>
 
-        {/* Destination row + time toggle + submit */}
-        <div className="flex gap-2">
+        {/* Destination row + time toggle + options toggle + submit */}
+        <div className="flex gap-1.5">
           <div className="flex-1 min-w-0">
             <LocationField
               icon="🔴"
@@ -379,7 +379,7 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
           {/* Time toggle — blue when a future time is set */}
           <button
             type="button"
-            onClick={() => setShowTimePicker((v) => !v)}
+            onClick={() => { setShowTimePicker((v) => !v); setShowOptions(false); }}
             disabled={isLoading}
             title={isNow ? 'Depart now' : formatTimeShort(new Date(dateTimeStr))}
             className={`flex-shrink-0 w-9 rounded-lg border transition-colors flex items-center justify-center text-base ${
@@ -389,6 +389,23 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
             }`}
           >
             🕐
+          </button>
+
+          {/* Options toggle */}
+          <button
+            type="button"
+            onClick={() => { setShowOptions((v) => !v); setShowTimePicker(false); }}
+            disabled={isLoading}
+            title="Route options"
+            className={`flex-shrink-0 w-9 rounded-lg border transition-colors flex items-center justify-center ${
+              showOptions
+                ? 'border-green-400 text-green-700 bg-green-50'
+                : 'border-gray-200 text-gray-400 bg-white hover:text-gray-600'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+            </svg>
           </button>
 
           <button
@@ -433,7 +450,7 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
         )}
 
         {/* Inline time chip when a future time is set but picker is closed */}
-        {!isNow && !showTimePicker && (
+        {!isNow && !showTimePicker && !showOptions && (
           <button
             type="button"
             onClick={() => setShowTimePicker(true)}
@@ -441,6 +458,57 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
           >
             📅 {formatTimeShort(new Date(dateTimeStr))}
           </button>
+        )}
+
+        {/* Options panel */}
+        {showOptions && (
+          <div className="flex flex-col gap-2.5 p-3 bg-gray-50 rounded-xl border border-gray-100">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-gray-500">Shade Priority</label>
+              <div className="grid grid-cols-3 gap-1">
+                {(Object.keys(ROUTE_PRESETS) as RoutePreset[]).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => handlePreset(p)}
+                    disabled={isLoading}
+                    className={`flex flex-col items-center py-1.5 px-1 rounded-lg border text-xs transition-colors ${
+                      preset === p
+                        ? 'border-green-500 bg-green-50 text-green-700 font-semibold'
+                        : 'border-gray-200 bg-white text-gray-500'
+                    }`}
+                  >
+                    <span>{p === 'speed' ? '⚡' : p === 'balanced' ? '⚖️' : '🌿'}</span>
+                    <span className="mt-0.5">{PRESET_META[p].label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            {preset !== 'speed' && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 whitespace-nowrap">Max detour</span>
+                <input
+                  type="range" min={5} max={50} step={5}
+                  value={maxDetour}
+                  onChange={(e) => setMaxDetour(Number(e.target.value))}
+                  disabled={isLoading}
+                  className="flex-1 accent-green-500"
+                />
+                <span className="text-xs text-gray-600 w-8 text-right">+{maxDetour}%</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500 whitespace-nowrap">Shadow wait</span>
+              <input
+                type="range" min={5} max={30} step={5}
+                value={buildingTimeout}
+                onChange={(e) => setBuildingTimeout(Number(e.target.value))}
+                disabled={isLoading}
+                className="flex-1 accent-green-500"
+              />
+              <span className="text-xs text-gray-600 w-6 text-right">{buildingTimeout}s</span>
+            </div>
+          </div>
         )}
 
         {!hasGpsLocation && origin !== GPS && !origin.trim() && (
