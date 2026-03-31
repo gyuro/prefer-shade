@@ -68,9 +68,13 @@ function buildGoogleMapsUrl(origin: LatLng, dest: LatLng, routingWaypoints?: Lat
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
-function statusLabel(status: string, hasPrelimRoute: boolean): string {
+function statusLabel(status: string, hasPrelimRoute: boolean, shadowPercent: number | null): string {
   if (status === 'routing') return 'Finding route…';
-  if (status === 'scoring') return hasPrelimRoute ? 'Scoring shade coverage…' : 'Calculating shade…';
+  if (status === 'scoring') {
+    if (!hasPrelimRoute) return 'Calculating shade…';
+    if (shadowPercent !== null) return `Loading shadow map… ${shadowPercent}%`;
+    return 'Scoring shade coverage…';
+  }
   return 'Working…';
 }
 
@@ -174,7 +178,7 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
             {isLoading ? (
               <div className="flex items-center gap-2.5 text-sm text-gray-500">
                 <Spinner className="w-4 h-4 text-green-500" />
-                <span>{statusLabel(searchState.status, !!searchState.fastestRoute)}</span>
+                <span>{statusLabel(searchState.status, !!searchState.fastestRoute, searchState.shadowPercent ?? null)}</span>
               </div>
             ) : searchState.status === 'error' ? (
               <p className="text-sm text-red-600 flex-1">{searchState.error}</p>
@@ -294,7 +298,7 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
               {isLoading && (
                 <div className="flex items-center gap-2.5 text-sm text-gray-500">
                   <Spinner className="w-4 h-4 text-green-500" />
-                  <span>{statusLabel(searchState.status, !!searchState.fastestRoute)}</span>
+                  <span>{statusLabel(searchState.status, !!searchState.fastestRoute, searchState.shadowPercent ?? null)}</span>
                 </div>
               )}
               {searchState.status === 'error' && searchState.error && (
