@@ -33,7 +33,7 @@ export function RoutePolyline({ route, isSelected }: Props) {
       <Layer
         id={`${id}-halo`}
         type="line"
-        layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+        layout={{ 'line-cap': 'butt', 'line-join': 'round' }}
         paint={{
           'line-color': '#ffffff',
           'line-width': isSelected ? 10 : 7,
@@ -43,7 +43,7 @@ export function RoutePolyline({ route, isSelected }: Props) {
       <Layer
         id={`${id}-line`}
         type="line"
-        layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+        layout={{ 'line-cap': 'butt', 'line-join': 'round' }}
         paint={{
           'line-color': color,
           'line-width': isSelected ? 6 : 4,
