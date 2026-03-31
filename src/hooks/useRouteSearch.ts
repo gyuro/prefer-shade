@@ -88,10 +88,11 @@ export function useRouteSearch() {
       const emptyIndex = new ShadowIndex([]);
       const routePlaceholder = scoreRouteWithIndex(fastest, emptyIndex, 'FASTEST');
 
-      // Show route immediately + start animated progress for building fetch
+      // Show fastest route immediately (blue); shadedRoute stays null until
+      // shadow data is fully computed — it will appear together with the overlay.
       const buildingTimeoutMs = (options.buildingTimeoutSecs ?? DEFAULT_BUILDINGS_TIMEOUT_MS / 1000) * 1000;
       const fetchStart = Date.now();
-      setState((s) => ({ ...s, status: 'scoring', fastestRoute: routePlaceholder, shadedRoute: { ...routePlaceholder, routeLabel: 'MOST_SHADED' }, shadows: [], shadowPercent: 5 }));
+      setState((s) => ({ ...s, status: 'scoring', fastestRoute: routePlaceholder, shadedRoute: null, shadows: [], shadowPercent: 5 }));
 
       stopTimer();
       timerRef.current = setInterval(() => {

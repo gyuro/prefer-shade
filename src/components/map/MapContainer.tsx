@@ -81,7 +81,9 @@ interface MapContentProps {
 
 function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin, destination, userLocation, onLongPress }: MapContentProps) {
   const { current: map } = useMap();
-  const fittedPolylineRef = useRef<string | null>(null);
+  // Track both route polylines so fitBounds re-fires when the shaded route
+  // arrives with a different geometry after shadow computation completes.
+  const fittedKeyRef = useRef<string | null>(null);
   const centeredOnGpsRef = useRef(false);
 
   // Fly to GPS location once it first resolves — skip if a route is already shown
@@ -93,8 +95,9 @@ function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin,
 
   useEffect(() => {
     if (!map || !fastestRoute) return;
-    if (fastestRoute.encodedPolyline === fittedPolylineRef.current) return;
-    fittedPolylineRef.current = fastestRoute.encodedPolyline;
+    const fittedKey = `${fastestRoute.encodedPolyline}|${shadedRoute?.encodedPolyline ?? ''}`;
+    if (fittedKey === fittedKeyRef.current) return;
+    fittedKeyRef.current = fittedKey;
 
     const lngs: number[] = [];
     const lats: number[] = [];
