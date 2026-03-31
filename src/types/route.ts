@@ -24,12 +24,14 @@ export interface RouteOptions {
   maxDetourPct: number;
   /** Minimum shade-point improvement over the fastest route required to accept a waypoint route */
   minShadeGain: number;
+  /** Seconds to wait for Overpass building data before proceeding without shade (default 10) */
+  buildingTimeoutSecs: number;
 }
 
 export const ROUTE_PRESETS = {
-  speed:    { maxDetourPct: 5,  minShadeGain: 10 },
-  balanced: { maxDetourPct: 20, minShadeGain: 5  },
-  shade:    { maxDetourPct: 35, minShadeGain: 2  },
+  speed:    { maxDetourPct: 5,  minShadeGain: 10, buildingTimeoutSecs: 10 },
+  balanced: { maxDetourPct: 20, minShadeGain: 5,  buildingTimeoutSecs: 10 },
+  shade:    { maxDetourPct: 35, minShadeGain: 2,  buildingTimeoutSecs: 10 },
 } satisfies Record<string, RouteOptions>;
 
 export type RoutePreset = keyof typeof ROUTE_PRESETS;

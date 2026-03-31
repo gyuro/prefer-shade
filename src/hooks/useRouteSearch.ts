@@ -19,8 +19,8 @@ interface ExtendedState extends RouteSearchState {
   shadows: Feature<Polygon>[];
 }
 
-/** Max time to wait for Overpass buildings before proceeding without shade data */
-const BUILDINGS_TIMEOUT_MS = 7000;
+/** Default max time to wait for Overpass buildings before proceeding without shade data */
+const DEFAULT_BUILDINGS_TIMEOUT_MS = 10_000;
 
 /**
  * Detect closed loops in a route by projecting each point onto the
@@ -91,10 +91,11 @@ export function useRouteSearch() {
         shadows: [],
       }));
 
-      // ── Wait for buildings — cap at BUILDINGS_TIMEOUT_MS to stay responsive ──
+      // ── Wait for buildings — cap at user-configured timeout to stay responsive ──
+      const buildingTimeoutMs = (options.buildingTimeoutSecs ?? DEFAULT_BUILDINGS_TIMEOUT_MS / 1000) * 1000;
       const buildings: BuildingFeature[] = await withTimeout(
         buildingsPromise,
-        BUILDINGS_TIMEOUT_MS,
+        buildingTimeoutMs,
         [],
       );
 
