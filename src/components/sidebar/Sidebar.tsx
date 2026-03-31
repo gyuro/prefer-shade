@@ -57,10 +57,11 @@ function buildGoogleMapsUrl(origin: LatLng, dest: LatLng, encodedPolyline?: stri
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  routing: 'Finding routes…',
-  scoring: 'Calculating shade…',
-};
+function statusLabel(status: string, hasPrelimRoute: boolean): string {
+  if (status === 'routing') return 'Finding route…';
+  if (status === 'scoring') return hasPrelimRoute ? 'Scoring shade coverage…' : 'Calculating shade…';
+  return 'Working…';
+}
 
 function NavigateButton({ origin, dest, polyline }: { origin: LatLng; dest: LatLng; polyline?: string }) {
   return (
@@ -162,7 +163,7 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
             {isLoading ? (
               <div className="flex items-center gap-2.5 text-sm text-gray-500">
                 <Spinner className="w-4 h-4 text-green-500" />
-                <span>{STATUS_LABELS[searchState.status] ?? 'Working…'}</span>
+                <span>{statusLabel(searchState.status, !!searchState.fastestRoute)}</span>
               </div>
             ) : searchState.status === 'error' ? (
               <p className="text-sm text-red-600 flex-1">{searchState.error}</p>
@@ -282,7 +283,7 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
               {isLoading && (
                 <div className="flex items-center gap-2.5 text-sm text-gray-500">
                   <Spinner className="w-4 h-4 text-green-500" />
-                  <span>{STATUS_LABELS[searchState.status] ?? 'Working…'}</span>
+                  <span>{statusLabel(searchState.status, !!searchState.fastestRoute)}</span>
                 </div>
               )}
               {searchState.status === 'error' && searchState.error && (
