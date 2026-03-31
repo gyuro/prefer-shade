@@ -14,11 +14,13 @@ const DEFAULT_CENTER: LatLng = { lat: 37.7749, lng: -122.4194 };
 export default function ShadeApp() {
   const { location, isLocating } = useUserLocation();
   const routeSearch = useRouteSearch();
-  const { weather, loading: weatherLoading } = useWeather(location);
   const [searchOrigin, setSearchOrigin] = useState<LatLng | null>(null);
   const [searchDest, setSearchDest] = useState<LatLng | null>(null);
   // Coordinate from a map long-press — forwarded to whichever search field is focused
   const [mapPickCoord, setMapPickCoord] = useState<LatLng | null>(null);
+
+  const weatherCoord = searchDest ?? searchOrigin ?? location;
+  const { weather, loading: weatherLoading } = useWeather(weatherCoord);
 
   const center = location ?? DEFAULT_CENTER;
 
