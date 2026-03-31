@@ -72,7 +72,7 @@ export default function ShadeApp() {
       />
 
       {isLocating && (
-        <div className="absolute bottom-72 right-4 md:bottom-6 md:right-6 bg-white text-gray-600 text-xs px-3 py-2 rounded-full shadow-md flex items-center gap-2">
+        <div className="absolute bottom-4 right-4 md:bottom-6 md:right-6 bg-white text-gray-600 text-xs px-3 py-2 rounded-full shadow-md flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
           Getting your location...
         </div>

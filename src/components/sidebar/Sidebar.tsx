@@ -53,29 +53,38 @@ function buildGoogleMapsUrl(origin: LatLng, dest: LatLng, encodedPolyline?: stri
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  routing: 'Finding routes...',
-  scoring: 'Calculating shade coverage...',
+  routing: 'Finding routes…',
+  scoring: 'Calculating shade…',
 };
 
-export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, onReset, searchOrigin, searchDest, selectedRoute }: Props) {
-  const [mobileExpanded, setMobileExpanded] = useState(false);
-  // Track whether we're on a small screen (< md = 768px)
-  const [isMobile, setIsMobile] = useState(false);
+function NavigateButton({ origin, dest, polyline }: { origin: LatLng; dest: LatLng; polyline?: string }) {
+  return (
+    <a
+      href={buildGoogleMapsUrl(origin, dest, polyline)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+      </svg>
+      Navigate in Google Maps
+    </a>
+  );
+}
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
+export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, onReset, searchOrigin, searchDest, selectedRoute }: Props) {
+  // false = peeked (summary only), true = fully open
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const isLoading = searchState.status === 'routing' || searchState.status === 'scoring';
   const hasResult = searchState.status === 'done';
+  const hasContent = isLoading || hasResult || searchState.status === 'error';
 
-  // Collapse when route is cleared
+  // Collapse sheet when route is cleared
   useEffect(() => {
-    if (!hasResult && !isLoading) setMobileExpanded(false);
-  }, [hasResult, isLoading]);
+    if (!hasContent) setSheetOpen(false);
+  }, [hasContent]);
 
   const timelinePolyline =
     searchState.shadedRoute?.encodedPolyline ?? searchState.fastestRoute?.encodedPolyline ?? null;
@@ -83,58 +92,153 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
 
   const fastestScore = searchState.fastestRoute?.shadeScore;
   const shadedScore = searchState.shadedRoute?.shadeScore;
-
-  // On mobile when collapsed, hide date/time and options to save space
-  const compactSearch = isMobile && !mobileExpanded;
+  const shadedRoute = searchState.shadedRoute;
+  const fastestRoute = searchState.fastestRoute;
 
   return (
     <>
-      {/* Tap-away backdrop on mobile */}
-      {isMobile && mobileExpanded && (
+      {/* ════════════════════════════════════════════════════════════════
+          MOBILE LAYOUT  (hidden on md+)
+          ════════════════════════════════════════════════════════════════ */}
+
+      {/* Fixed search bar — always visible at top */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-100 shadow-sm">
+        <div className="flex items-center gap-2 px-3 pt-2 pb-1">
+          <span className="text-lg">🌿</span>
+          <span className="text-sm font-semibold text-green-700">Prefer Shade</span>
+        </div>
+        <SearchPanel
+          isLoading={isLoading}
+          hasGpsLocation={hasGpsLocation}
+          onSearch={onSearch}
+          onReset={onReset}
+          hasResult={hasResult}
+          variant="topbar"
+        />
+      </div>
+
+      {/* Backdrop — dims map when sheet is fully open */}
+      {sheetOpen && (
         <div
-          className="fixed inset-0 z-10"
-          onClick={() => setMobileExpanded(false)}
+          className="md:hidden fixed inset-0 z-20 bg-black/20"
+          onClick={() => setSheetOpen(false)}
         />
       )}
 
-      <div className={clsx(
-        'bg-white flex flex-col z-20',
-        // ── Mobile: bottom sheet ──────────────────────────────────────────────
-        'fixed bottom-0 left-0 right-0 rounded-t-2xl',
-        'shadow-[0_-2px_20px_rgba(0,0,0,0.13)]',
-        'transition-[height] duration-300 ease-out',
-        mobileExpanded ? 'h-[85vh]' : 'h-64',
-        // ── Desktop (md+): left sidebar — overrides mobile styles ─────────────
-        'md:absolute md:left-4 md:top-4 md:bottom-4 md:right-auto md:w-80',
-        'md:h-auto md:rounded-2xl md:shadow-xl md:transition-none',
-      )}>
-
-        {/* ── Mobile drag handle + collapsed result summary ───────────────── */}
-        <button
-          className="md:hidden flex-shrink-0 w-full flex flex-col items-center pt-2.5 pb-1.5 touch-none"
-          onClick={() => setMobileExpanded((v) => !v)}
-          aria-label={mobileExpanded ? 'Collapse panel' : 'Expand panel'}
-        >
-          <span className="w-9 h-1 rounded-full bg-gray-300" />
-          {/* One-line route summary while collapsed */}
-          {!mobileExpanded && hasResult && searchState.shadedRoute ? (
-            <span className="mt-1.5 text-xs text-green-700 font-medium">
-              🌿 {searchState.shadedRoute.shadeScore}% shade ·{' '}
-              {Math.round(searchState.shadedRoute.durationSeconds / 60)} min —{' '}
-              <span className="text-gray-400">tap for details</span>
-            </span>
-          ) : (
-            <span className="mt-1 text-[10px] text-gray-400 font-medium">
-              {mobileExpanded ? '▼ collapse' : '▲ expand'}
-            </span>
+      {/* Results bottom sheet */}
+      {hasContent && (
+        <div
+          className={clsx(
+            'md:hidden fixed bottom-0 left-0 right-0 z-30',
+            'bg-white rounded-t-2xl',
+            'shadow-[0_-4px_24px_rgba(0,0,0,0.12)]',
+            'flex flex-col overflow-hidden',
+            'transition-[height] duration-300 ease-out',
+            sheetOpen ? 'h-[85vh]' : 'h-28',
           )}
-        </button>
+        >
+          {/* Drag handle — tap toggles peek ↔ full */}
+          <button
+            className="flex-shrink-0 w-full flex justify-center pt-2.5 pb-1 touch-none"
+            onClick={() => setSheetOpen((v) => !v)}
+            aria-label={sheetOpen ? 'Collapse panel' : 'Expand panel'}
+          >
+            <span className="w-10 h-1 rounded-full bg-gray-300" />
+          </button>
 
-        {/* ── Header — hidden on mobile when collapsed ───────────────────── */}
-        <div className={clsx(
-          'bg-gradient-to-br from-green-600 to-green-700 p-5 flex-shrink-0',
-          !mobileExpanded && 'hidden md:block',
-        )}>
+          {/* Peek summary row — always visible */}
+          <div className="flex-shrink-0 px-4 pb-3 flex items-center min-h-[56px]">
+            {isLoading ? (
+              <div className="flex items-center gap-2.5 text-sm text-gray-500">
+                <Spinner className="w-4 h-4 text-green-500" />
+                <span>{STATUS_LABELS[searchState.status] ?? 'Working…'}</span>
+              </div>
+            ) : searchState.status === 'error' ? (
+              <p className="text-sm text-red-600 flex-1">{searchState.error}</p>
+            ) : hasResult && shadedRoute ? (
+              <div className="flex items-center w-full gap-3">
+                <div className="flex-1 min-w-0">
+                  <span className="text-lg font-bold text-green-700">{shadedRoute.shadeScore}%</span>
+                  <span className="text-sm text-gray-400 ml-1">shade</span>
+                  <span className="mx-2 text-gray-300">·</span>
+                  <span className="text-sm font-medium text-gray-700">
+                    {Math.round(shadedRoute.durationSeconds / 60)} min
+                  </span>
+                  <span className="mx-2 text-gray-300">·</span>
+                  <span className="text-sm text-gray-400">
+                    {(shadedRoute.distanceMeters / 1000).toFixed(1)} km
+                  </span>
+                </div>
+                <button
+                  onClick={() => setSheetOpen((v) => !v)}
+                  className={clsx(
+                    'flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors',
+                    sheetOpen
+                      ? 'text-gray-400 hover:text-gray-600'
+                      : 'text-green-700 bg-green-50 hover:bg-green-100',
+                  )}
+                >
+                  {sheetOpen ? '' : 'Details'}
+                  <svg
+                    className={clsx('w-4 h-4 transition-transform duration-300', sheetOpen && 'rotate-180')}
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                  </svg>
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Full detail content — scrollable, only reachable when open */}
+          <div className="flex-1 overflow-y-auto px-4 pb-8 flex flex-col gap-4 min-h-0">
+            {hasResult && shadedRoute && fastestRoute && (
+              <div className="flex flex-col gap-3">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  Route Options
+                </span>
+                <RouteCard
+                  route={shadedRoute}
+                  isSelected={searchState.selectedRoute === 'shaded'}
+                  onSelect={() => onSelectRoute('shaded')}
+                  comparedShadeScore={fastestScore}
+                />
+                {fastestRoute.encodedPolyline !== shadedRoute.encodedPolyline && (
+                  <RouteCard
+                    route={fastestRoute}
+                    isSelected={searchState.selectedRoute === 'fastest'}
+                    onSelect={() => onSelectRoute('fastest')}
+                    comparedShadeScore={shadedScore}
+                  />
+                )}
+              </div>
+            )}
+
+            {hasResult && searchOrigin && searchDest && (
+              <NavigateButton
+                origin={searchOrigin}
+                dest={searchDest}
+                polyline={selectedRoute?.encodedPolyline}
+              />
+            )}
+
+            <ShadeTimeline timeline={timeline} loading={timelineLoading} hasRoute={hasResult} />
+
+            {hasResult && (
+              <p className="text-xs text-gray-400 text-center">
+                Shadow data from OSM buildings + real-time sun position
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════
+          DESKTOP SIDEBAR  (hidden below md)
+          ════════════════════════════════════════════════════════════════ */}
+      <div className="hidden md:flex flex-col z-20 absolute left-4 top-4 bottom-4 w-80 bg-white rounded-2xl shadow-xl">
+        {/* Header */}
+        <div className="bg-gradient-to-br from-green-600 to-green-700 p-5 flex-shrink-0 rounded-t-2xl">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-2xl">🌿</span>
             <h1 className="text-lg font-bold text-white">Prefer Shade</h1>
@@ -142,7 +246,7 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
           <p className="text-green-100 text-xs">Walk in the shade, not the sun</p>
         </div>
 
-        {/* ── Scrollable content ─────────────────────────────────────────── */}
+        {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 min-h-0">
           <SearchPanel
             isLoading={isLoading}
@@ -150,79 +254,62 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
             onSearch={onSearch}
             onReset={onReset}
             hasResult={hasResult}
-            compact={compactSearch}
           />
 
-          {/* Results — hidden on mobile when collapsed */}
-          {(!isMobile || mobileExpanded) && (
-            <>
-              {isLoading && (
-                <div className="flex items-center gap-3 text-sm text-gray-500 py-2">
-                  <Spinner className="w-4 h-4 text-green-500" />
-                  <span>{STATUS_LABELS[searchState.status] ?? 'Working...'}</span>
-                </div>
-              )}
+          {isLoading && (
+            <div className="flex items-center gap-3 text-sm text-gray-500 py-2">
+              <Spinner className="w-4 h-4 text-green-500" />
+              <span>{STATUS_LABELS[searchState.status] ?? 'Working…'}</span>
+            </div>
+          )}
 
-              {searchState.status === 'error' && searchState.error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
-                  {searchState.error}
-                </div>
-              )}
+          {searchState.status === 'error' && searchState.error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+              {searchState.error}
+            </div>
+          )}
 
-              {hasResult && searchState.shadedRoute && searchState.fastestRoute && (
-                <div className="flex flex-col gap-3">
-                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    Route Options
-                  </span>
-                  <RouteCard
-                    route={searchState.shadedRoute}
-                    isSelected={searchState.selectedRoute === 'shaded'}
-                    onSelect={() => onSelectRoute('shaded')}
-                    comparedShadeScore={fastestScore}
-                  />
-                  {searchState.fastestRoute.encodedPolyline !== searchState.shadedRoute.encodedPolyline && (
-                    <RouteCard
-                      route={searchState.fastestRoute}
-                      isSelected={searchState.selectedRoute === 'fastest'}
-                      onSelect={() => onSelectRoute('fastest')}
-                      comparedShadeScore={shadedScore}
-                    />
-                  )}
-                </div>
-              )}
-
-              {hasResult && searchOrigin && searchDest && (
-                <a
-                  href={buildGoogleMapsUrl(searchOrigin, searchDest, selectedRoute?.encodedPolyline)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                  </svg>
-                  Navigate in Google Maps
-                </a>
-              )}
-
-              <ShadeTimeline
-                timeline={timeline}
-                loading={timelineLoading}
-                hasRoute={hasResult}
+          {hasResult && shadedRoute && fastestRoute && (
+            <div className="flex flex-col gap-3">
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Route Options
+              </span>
+              <RouteCard
+                route={shadedRoute}
+                isSelected={searchState.selectedRoute === 'shaded'}
+                onSelect={() => onSelectRoute('shaded')}
+                comparedShadeScore={fastestScore}
               />
-
-              {hasResult && (
-                <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 text-xs text-amber-700">
-                  <span className="font-semibold">Shadow data</span> computed from OSM buildings +
-                  real-time sun position.
-                </div>
+              {fastestRoute.encodedPolyline !== shadedRoute.encodedPolyline && (
+                <RouteCard
+                  route={fastestRoute}
+                  isSelected={searchState.selectedRoute === 'fastest'}
+                  onSelect={() => onSelectRoute('fastest')}
+                  comparedShadeScore={shadedScore}
+                />
               )}
-            </>
+            </div>
+          )}
+
+          {hasResult && searchOrigin && searchDest && (
+            <NavigateButton
+              origin={searchOrigin}
+              dest={searchDest}
+              polyline={selectedRoute?.encodedPolyline}
+            />
+          )}
+
+          <ShadeTimeline timeline={timeline} loading={timelineLoading} hasRoute={hasResult} />
+
+          {hasResult && (
+            <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 text-xs text-amber-700">
+              <span className="font-semibold">Shadow data</span> computed from OSM buildings +
+              real-time sun position.
+            </div>
           )}
         </div>
 
-        {/* ── Footer — desktop only ──────────────────────────────────────── */}
-        <div className="hidden md:block px-4 py-3 border-t border-gray-100 text-xs text-gray-400 text-center flex-shrink-0">
+        <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400 text-center flex-shrink-0">
           Prefer Shade · Shadow-driven navigation
         </div>
       </div>

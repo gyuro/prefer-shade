@@ -60,7 +60,7 @@ function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin,
       [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
       {
         padding: mobile
-          ? { top: 60, bottom: 280, left: 24, right: 24 }
+          ? { top: 140, bottom: 150, left: 24, right: 24 }
           : { top: 80, bottom: 80, left: 380, right: 80 },
         duration: 800,
       }
