@@ -137,15 +137,27 @@ export function useRouteSearch() {
         if (alt.shadeScore >= scoredShaded.shadeScore) scoredShaded = alt;
       }
 
-      // Show shadow overlay + scored routes immediately (before waypoint OSRM call)
-      setState((s) => ({ ...s, shadows, fastestRoute: scoredFastest, shadedRoute: scoredShaded, shadowPercent: 95 }));
+      // Shadow overlay + initial scored routes are ready — mark done so the
+      // progress pill disappears at the exact moment shadows appear on the map.
+      const initialSelectedRoute =
+        scoredShaded.encodedPolyline !== scoredFastest.encodedPolyline ||
+        scoredShaded.shadeScore > scoredFastest.shadeScore ? 'shaded' : 'fastest';
 
-      if (weather?.shadeRelevance === 'none') {
-        setState({ status: 'done', fastestRoute: scoredFastest, shadedRoute: { ...scoredFastest, routeLabel: 'MOST_SHADED' }, selectedRoute: 'fastest', error: null, shadows, shadowPercent: null });
-        return;
-      }
+      setState({
+        status: 'done',
+        fastestRoute: scoredFastest,
+        shadedRoute: scoredShaded,
+        selectedRoute: weather?.shadeRelevance === 'none' ? 'fastest' : initialSelectedRoute,
+        error: null,
+        shadows,
+        shadowPercent: null,
+      });
 
-      // ── Waypoint optimisation ──────────────────────────────────────────────
+      if (weather?.shadeRelevance === 'none') return;
+
+      // ── Waypoint optimisation (silent background refinement) ──────────────
+      // Runs after the map is already showing shadows. If a better shaded route
+      // is found it silently replaces shadedRoute without resetting progress.
       const waypoints = optimizeWaypoints(fastest.encodedPolyline, index);
       const weatherBoost        = weather?.shadeRelevance === 'high' ? 1.3 : 1;
       const weatherGainDiscount = weather?.shadeRelevance === 'high' ? 0.7 : 1;
@@ -166,23 +178,12 @@ export function useRouteSearch() {
               const shadeGain = scored.shadeScore - scoredFastest.shadeScore;
               if (shadeGain >= options.minShadeGain * weatherGainDiscount && scored.shadeScore >= scoredShaded.shadeScore) {
                 scoredShaded = scored;
+                setState((s) => s.status === 'done' ? { ...s, shadedRoute: scoredShaded, selectedRoute: 'shaded' } : s);
               }
             }
           }
-        } catch { /* Waypoint route failed — use best so far */ }
+        } catch { /* Waypoint route failed — keep initial scored route */ }
       }
-
-      setState({
-        status: 'done',
-        fastestRoute: scoredFastest,
-        shadedRoute: scoredShaded,
-        selectedRoute:
-          scoredShaded.encodedPolyline !== scoredFastest.encodedPolyline ||
-          scoredShaded.shadeScore > scoredFastest.shadeScore ? 'shaded' : 'fastest',
-        error: null,
-        shadows,
-        shadowPercent: null,
-      });
     } catch (err) {
       stopTimer();
       setState({ status: 'error', fastestRoute: null, shadedRoute: null, selectedRoute: 'shaded', error: err instanceof Error ? err.message : String(err), shadows: [], shadowPercent: null });
