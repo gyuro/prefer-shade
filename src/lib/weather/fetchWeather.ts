@@ -104,6 +104,10 @@ export async function fetchWeather(lat: number, lng: number, date: Date): Promis
     const diffMs = date.getTime() - Date.now();
     const isCurrent = Math.abs(diffMs) < 30 * 60 * 1000;
 
+    // Open-Meteo hourly forecast is limited to 16 days ahead
+    const daysAhead = diffMs / (1000 * 60 * 60 * 24);
+    if (daysAhead > 16) return null;
+
     if (isCurrent) {
       const url =
         `https://api.open-meteo.com/v1/forecast` +

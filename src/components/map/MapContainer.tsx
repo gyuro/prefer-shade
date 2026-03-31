@@ -138,12 +138,12 @@ function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin,
 
       {hasBothDistinct ? (
         <>
-          <RoutePolyline route={fastestRoute!} isSelected={selectedRoute === 'fastest'} zIndex={selectedRoute === 'fastest' ? 2 : 1} />
-          <RoutePolyline route={shadedRoute!} isSelected={selectedRoute === 'shaded'} zIndex={selectedRoute === 'shaded' ? 2 : 1} />
+          <RoutePolyline key="fastest" route={fastestRoute!} isSelected={selectedRoute === 'fastest'} zIndex={selectedRoute === 'fastest' ? 2 : 1} />
+          <RoutePolyline key="shaded" route={shadedRoute!} isSelected={selectedRoute === 'shaded'} zIndex={selectedRoute === 'shaded' ? 2 : 1} />
         </>
       ) : (
         (shadedRoute ?? fastestRoute) && (
-          <RoutePolyline route={(shadedRoute ?? fastestRoute)!} isSelected zIndex={2} />
+          <RoutePolyline key="single" route={(shadedRoute ?? fastestRoute)!} isSelected zIndex={2} />
         )
       )}
 
