@@ -107,11 +107,12 @@ export function useRouteSearch() {
       const routeBbox = expandBbox(pointsBbox(allRoutePoints), 150);
 
       const buildings: BuildingFeature[] = await withTimeout(
-        fetchBuildings(routeBbox),
+        buildingsPromise
+          .then(() => fetchBuildings(routeBbox))
+          .catch(() => []),
         buildingTimeoutMs,
         [],
       );
-      void buildingsPromise;
 
       stopTimer();
       setState((s) => ({ ...s, shadowPercent: 80 }));
@@ -127,7 +128,6 @@ export function useRouteSearch() {
         .filter((s): s is NonNullable<typeof s> => s !== null);
 
       const index = new ShadowIndex(shadows);
-      setState((s) => ({ ...s, shadowPercent: 90 }));
 
       // ── Score routes ───────────────────────────────────────────────────────
       const scoredFastest: ScoredRoute = scoreRouteWithIndex(fastest, index, 'FASTEST');
@@ -136,7 +136,9 @@ export function useRouteSearch() {
         const alt = scoreRouteWithIndex(candidates[i], index, 'MOST_SHADED');
         if (alt.shadeScore >= scoredShaded.shadeScore) scoredShaded = alt;
       }
-      setState((s) => ({ ...s, shadowPercent: 95 }));
+
+      // Show shadow overlay + scored routes immediately (before waypoint OSRM call)
+      setState((s) => ({ ...s, shadows, fastestRoute: scoredFastest, shadedRoute: scoredShaded, shadowPercent: 95 }));
 
       if (weather?.shadeRelevance === 'none') {
         setState({ status: 'done', fastestRoute: scoredFastest, shadedRoute: { ...scoredFastest, routeLabel: 'MOST_SHADED' }, selectedRoute: 'fastest', error: null, shadows, shadowPercent: null });
