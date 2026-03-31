@@ -120,14 +120,10 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
 
       {/* Fixed search bar — always visible at top */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-100 shadow-sm">
-        <button
-          type="button"
-          onClick={onReset}
-          className="flex items-center gap-2 px-3 pt-2 pb-1 hover:opacity-70 transition-opacity"
-        >
+        <div className="flex items-center gap-2 px-3 pt-2 pb-1">
           <span className="text-lg">🌿</span>
           <span className="text-sm font-semibold text-green-700">Prefer Shade</span>
-        </button>
+        </div>
         <SearchPanel
           isLoading={isLoading}
           hasGpsLocation={hasGpsLocation}
