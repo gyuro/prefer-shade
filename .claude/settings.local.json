@@ -25,7 +25,22 @@
       "Bash(npm run:*)",
       "Bash(gh repo:*)",
       "Bash(git remote:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git push:*)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(GIT_TERMINAL_PROMPT=0 git push origin main)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(gh api:*)",
+      "Bash(gh run:*)",
+      "Bash(curl -s \"https://router.project-osrm.org/route/v1/foot/11.4078,48.1351;11.42,48.14?overview=false\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); r=d[''''routes''''][0]; print\\(f\"\"distance={r[''''distance'''']:.0f}m duration={r[''''duration'''']:.0f}s speed={\\(r[''''distance'''']/r[''''duration'''']*3.6\\):.1f}km/h\"\"\\)\")",
+      "Bash(curl -s \"https://routing.openstreetmap.de/routed-foot/route/v1/foot/11.4078,48.1351;11.42,48.14?overview=false\")",
+      "Bash(curl -s \"https://routing.openstreetmap.de/routed-foot/route/v1/foot/11.4078,48.1351;11.42,48.14?overview=full&geometries=polyline&alternatives=true\")",
+      "Bash(sed -i '' 's/Shade Route — Walk in the Shade/Prefer Shade — Walk in the Shade/' /Users/gyuro.park/Testbeds/shade-plugin/src/app/layout.tsx)",
+      "Bash(sed -i '' 's/>Shade Route</>Prefer Shade</' /Users/gyuro.park/Testbeds/shade-plugin/src/components/sidebar/Sidebar.tsx)",
+      "Bash(sed -i '' 's/Shade Route · Shadow-driven navigation/Prefer Shade · Shadow-driven navigation/' /Users/gyuro.park/Testbeds/shade-plugin/src/components/sidebar/Sidebar.tsx)",
+      "Bash(sed -i '' \"s/isShaded ? ''Shade Route'' : ''Fast Route''/isShaded ? ''Prefer Shade'' : ''Fast Route''/\" /Users/gyuro.park/Testbeds/shade-plugin/src/components/sidebar/RouteCard.tsx)",
+      "Bash(sed -i '' \"s/''Find Shade Route''/''Find Preferred Shade Route''/\" /Users/gyuro.park/Testbeds/shade-plugin/src/components/sidebar/SearchPanel.tsx)"
     ]
   }
 }

@@ -14,6 +14,16 @@ function toDateTimeLocal(d: Date): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
+function formatTimeShort(d: Date): string {
+  const today = new Date();
+  const isToday = d.toDateString() === today.toDateString();
+  const isTomorrow = d.toDateString() === new Date(today.getTime() + 86400000).toDateString();
+  const t = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (isToday) return `Today ${t}`;
+  if (isTomorrow) return `Tomorrow ${t}`;
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ` ${t}`;
+}
+
 interface Suggestion {
   label: string;
   lat: number;
@@ -231,11 +241,14 @@ const PRESET_META: Record<RoutePreset, { label: string; sub: string }> = {
 export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasResult, variant = 'sidebar', mapPickCoord }: Props) {
   const [origin, setOrigin] = useState('');
   const [dest, setDest] = useState('');
+  // isNow=true means always use new Date() at submit time, so time never goes stale
+  const [isNow, setIsNow] = useState(true);
   const [dateTimeStr, setDateTimeStr] = useState(() => toDateTimeLocal(new Date()));
   const [preset, setPreset] = useState<RoutePreset>('balanced');
   const [maxDetour, setMaxDetour] = useState(ROUTE_PRESETS.balanced.maxDetourPct);
+  const [showOptions, setShowOptions] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const destRef = useRef<HTMLInputElement | null>(null);
-  // Track which field was last focused so map long-press knows where to put the coordinate
   const lastFocusedField = useRef<'origin' | 'destination'>('destination');
 
   // When the map sends a picked coordinate, reverse-geocode it into the focused field
@@ -259,6 +272,23 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
     }
   }, [isLoading]);
 
+  const handleSwap = () => {
+    const tmp = origin;
+    setOrigin(dest);
+    setDest(tmp);
+  };
+
+  const setNow = () => {
+    setIsNow(true);
+    setDateTimeStr(toDateTimeLocal(new Date()));
+    setShowTimePicker(false);
+  };
+
+  const handleDateTimeChange = (v: string) => {
+    setDateTimeStr(v);
+    setIsNow(false);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const hasOrigin = origin === GPS || !!origin.trim();
@@ -266,7 +296,8 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
     if (!hasDest) return;
     if (!hasOrigin && !hasGpsLocation) return;
 
-    const time = new Date(dateTimeStr);
+    // Always use fresh Date() when "Now" mode is active
+    const time = isNow ? new Date() : new Date(dateTimeStr);
     const options: RouteOptions = {
       maxDetourPct: maxDetour,
       minShadeGain: ROUTE_PRESETS[preset].minShadeGain,
@@ -283,7 +314,9 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
     onReset();
     setOrigin('');
     setDest('');
+    setIsNow(true);
     setDateTimeStr(toDateTimeLocal(new Date()));
+    setShowTimePicker(false);
   };
 
   const canSearch =
@@ -293,19 +326,36 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
   // ── Topbar variant (mobile fixed top bar) ───────────────────────────────
   if (variant === 'topbar') {
     return (
-      <form onSubmit={handleSubmit} className="px-3 py-2.5 flex flex-col gap-1.5">
-        <LocationField
-          icon="📍"
-          value={origin}
-          onChange={setOrigin}
-          onGps={() => setOrigin(GPS)}
-          onClearGps={() => setOrigin('')}
-          onFieldFocus={() => { lastFocusedField.current = 'origin'; }}
-          placeholder={hasGpsLocation ? 'Current location' : 'Starting point'}
-          hasGps={hasGpsLocation}
-          disabled={isLoading}
-        />
+      <form onSubmit={handleSubmit} className="px-3 py-2 flex flex-col gap-1.5">
+        {/* Origin row + swap button */}
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <LocationField
+              icon="📍"
+              value={origin}
+              onChange={setOrigin}
+              onGps={() => setOrigin(GPS)}
+              onClearGps={() => setOrigin('')}
+              onFieldFocus={() => { lastFocusedField.current = 'origin'; }}
+              placeholder={hasGpsLocation ? 'Current location' : 'Starting point'}
+              hasGps={hasGpsLocation}
+              disabled={isLoading}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleSwap}
+            disabled={isLoading}
+            title="Swap origin and destination"
+            className="flex-shrink-0 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-30"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" />
+            </svg>
+          </button>
+        </div>
 
+        {/* Destination row + time toggle + submit */}
         <div className="flex gap-2">
           <div className="flex-1 min-w-0">
             <LocationField
@@ -322,6 +372,22 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
               inputRef={destRef}
             />
           </div>
+
+          {/* Time toggle — blue when a future time is set */}
+          <button
+            type="button"
+            onClick={() => setShowTimePicker((v) => !v)}
+            disabled={isLoading}
+            title={isNow ? 'Depart now' : formatTimeShort(new Date(dateTimeStr))}
+            className={`flex-shrink-0 w-9 rounded-lg border transition-colors flex items-center justify-center text-base ${
+              isNow
+                ? 'border-gray-200 text-gray-400 bg-white hover:text-gray-600'
+                : 'border-blue-400 text-blue-600 bg-blue-50'
+            }`}
+          >
+            🕐
+          </button>
+
           <button
             type="submit"
             disabled={isLoading || !canSearch}
@@ -337,6 +403,42 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
             )}
           </button>
         </div>
+
+        {/* Expanded time picker row */}
+        {showTimePicker && (
+          <div className="flex items-center gap-2">
+            <input
+              type="datetime-local"
+              value={dateTimeStr}
+              onChange={(e) => handleDateTimeChange(e.target.value)}
+              disabled={isLoading}
+              className="flex-1 text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
+            />
+            <button
+              type="button"
+              onClick={setNow}
+              disabled={isLoading}
+              className={`text-xs px-2.5 py-1.5 border rounded-lg whitespace-nowrap transition-colors ${
+                isNow
+                  ? 'border-green-400 bg-green-50 text-green-700 font-semibold'
+                  : 'border-gray-200 text-gray-400 hover:text-green-600 bg-white'
+              }`}
+            >
+              Now
+            </button>
+          </div>
+        )}
+
+        {/* Inline time chip when a future time is set but picker is closed */}
+        {!isNow && !showTimePicker && (
+          <button
+            type="button"
+            onClick={() => setShowTimePicker(true)}
+            className="text-xs text-blue-600 self-start hover:underline"
+          >
+            📅 {formatTimeShort(new Date(dateTimeStr))}
+          </button>
+        )}
 
         {!hasGpsLocation && origin !== GPS && !origin.trim() && (
           <p className="text-xs text-amber-600">GPS unavailable — enter a starting address</p>
@@ -356,8 +458,6 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
   }
 
   // ── Sidebar variant (desktop full panel) ────────────────────────────────
-  const [showOptions, setShowOptions] = useState(false);
-
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-2">
       {/* Location fields */}
@@ -374,9 +474,20 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
           disabled={isLoading}
         />
 
-        {/* Connector */}
-        <div className="flex items-center gap-1.5 py-0.5 pl-3">
-          <div className="w-px h-4 bg-gray-200" />
+        {/* Connector line + swap button */}
+        <div className="flex items-center py-0.5 pl-2.5">
+          <div className="w-px h-4 bg-gray-200 flex-shrink-0" />
+          <button
+            type="button"
+            onClick={handleSwap}
+            disabled={isLoading || (!origin && !dest)}
+            title="Swap origin and destination"
+            className="ml-auto p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-30"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" />
+            </svg>
+          </button>
         </div>
 
         <LocationField
@@ -398,6 +509,31 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
         <p className="text-xs text-amber-600">GPS unavailable — enter a starting address</p>
       )}
 
+      {/* Date & Time — always visible, not hidden in Options */}
+      <div className="flex items-center gap-2">
+        <input
+          type="datetime-local"
+          value={dateTimeStr}
+          onChange={(e) => handleDateTimeChange(e.target.value)}
+          disabled={isLoading}
+          className={`flex-1 text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-green-400 disabled:bg-gray-100 transition-colors ${
+            isNow ? 'bg-gray-50 text-gray-400 border-gray-200' : 'bg-white text-gray-700 border-blue-300'
+          }`}
+        />
+        <button
+          type="button"
+          onClick={setNow}
+          disabled={isLoading}
+          className={`text-xs px-2.5 py-1.5 border rounded-lg whitespace-nowrap transition-colors ${
+            isNow
+              ? 'border-green-400 bg-green-50 text-green-700 font-semibold'
+              : 'border-gray-200 text-gray-400 hover:text-green-600 bg-white'
+          }`}
+        >
+          Now
+        </button>
+      </div>
+
       {/* Submit */}
       <Button type="submit" disabled={isLoading || !canSearch} size="lg" className="w-full mt-1">
         {isLoading ? <Spinner className="w-4 h-4 text-white" /> : 'Find Shade Route'}
@@ -409,7 +545,7 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
         </button>
       )}
 
-      {/* Collapsible options */}
+      {/* Collapsible options (shade priority + detour slider) */}
       <button
         type="button"
         onClick={() => setShowOptions((v) => !v)}
@@ -426,27 +562,6 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
 
       {showOptions && (
         <div className="flex flex-col gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-500">Date &amp; Time</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="datetime-local"
-                value={dateTimeStr}
-                onChange={(e) => setDateTimeStr(e.target.value)}
-                disabled={isLoading}
-                className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-green-400 disabled:bg-gray-100 bg-white"
-              />
-              <button
-                type="button"
-                onClick={() => setDateTimeStr(toDateTimeLocal(new Date()))}
-                disabled={isLoading}
-                className="text-xs text-gray-400 hover:text-green-600 px-2 py-1.5 border border-gray-200 rounded-lg bg-white whitespace-nowrap"
-              >
-                Now
-              </button>
-            </div>
-          </div>
-
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-gray-500">Shade Priority</label>
             <div className="grid grid-cols-3 gap-1">

@@ -163,9 +163,13 @@ export function useRouteSearch() {
     setState((s) => ({ ...s, selectedRoute: which }));
   }, []);
 
+  const setError = useCallback((msg: string) => {
+    setState({ status: 'error', fastestRoute: null, shadedRoute: null, selectedRoute: 'shaded', error: msg, shadows: [] });
+  }, []);
+
   const reset = useCallback(() => {
     setState({ status: 'idle', fastestRoute: null, shadedRoute: null, selectedRoute: 'shaded', error: null, shadows: [] });
   }, []);
 
-  return { ...state, search, selectRoute, reset };
+  return { ...state, search, selectRoute, reset, setError };
 }

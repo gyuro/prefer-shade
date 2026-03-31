@@ -144,7 +144,7 @@ function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin,
         )
       )}
 
-      <RouteMarkers origin={origin} destination={destination} />
+      <RouteMarkers origin={origin} destination={destination} userLocation={userLocation} />
     </>
   );
 }

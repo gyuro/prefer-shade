@@ -6,6 +6,7 @@ import type { LatLng } from '@/types/route';
 interface Props {
   origin: LatLng | null;
   destination: LatLng | null;
+  userLocation: LatLng | null;
 }
 
 function PinIcon({ color, border }: { color: string; border: string }) {
@@ -24,9 +25,25 @@ function PinIcon({ color, border }: { color: string; border: string }) {
   );
 }
 
-export function RouteMarkers({ origin, destination }: Props) {
+function UserDot() {
+  return (
+    <div className="relative flex items-center justify-center w-5 h-5">
+      {/* Pulsing ring */}
+      <div className="absolute w-5 h-5 rounded-full bg-blue-400 opacity-40 animate-ping" />
+      {/* Solid dot */}
+      <div className="relative w-3.5 h-3.5 rounded-full bg-blue-500 border-2 border-white shadow-md" />
+    </div>
+  );
+}
+
+export function RouteMarkers({ origin, destination, userLocation }: Props) {
   return (
     <>
+      {userLocation && (
+        <Marker longitude={userLocation.lng} latitude={userLocation.lat} anchor="center">
+          <UserDot />
+        </Marker>
+      )}
       {origin && (
         <Marker longitude={origin.lng} latitude={origin.lat} anchor="bottom">
           <PinIcon color="#22c55e" border="#15803d" />
