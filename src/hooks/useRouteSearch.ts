@@ -12,6 +12,7 @@ import { expandBbox, pointsBbox } from '@/lib/utils/geo';
 import type { Feature, Polygon } from 'geojson';
 import type { LatLng, RouteOptions, RouteSearchState, ScoredRoute } from '@/types/route';
 import { ROUTE_PRESETS } from '@/types/route';
+import type { WeatherData } from '@/lib/weather/fetchWeather';
 
 interface ExtendedState extends RouteSearchState {
   shadows: Feature<Polygon>[];
@@ -47,7 +48,7 @@ export function useRouteSearch() {
     shadows: [],
   });
 
-  const search = useCallback(async (origin: LatLng, destination: LatLng, time?: Date, options: RouteOptions = ROUTE_PRESETS.balanced) => {
+  const search = useCallback(async (origin: LatLng, destination: LatLng, time?: Date, options: RouteOptions = ROUTE_PRESETS.balanced, weather?: WeatherData | null) => {
     setState((s) => ({ ...s, status: 'routing', fastestRoute: null, shadedRoute: null, shadows: [], error: null }));
 
     try {
@@ -93,11 +94,26 @@ export function useRouteSearch() {
       }
 
       // ── Step 5: Waypoint optimisation — probe parallel streets ────────────
+      // Skip shade optimisation entirely when weather makes shade irrelevant
+      if (weather?.shadeRelevance === 'none') {
+        setState({
+          status: 'done',
+          fastestRoute: scoredFastest,
+          shadedRoute: { ...scoredFastest, routeLabel: 'MOST_SHADED' },
+          selectedRoute: 'fastest',
+          error: null,
+          shadows,
+        });
+        return;
+      }
+
       const waypoints = optimizeWaypoints(fastest.encodedPolyline, index);
 
-      // Detour limits derived from user options
-      const MAX_DETOUR_DIST = 1 + options.maxDetourPct / 100;
-      const MAX_DETOUR_TIME = 1 + (options.maxDetourPct * 1.25) / 100;
+      // Detour limits derived from user options, boosted when UV/heat is high
+      const weatherBoost = weather?.shadeRelevance === 'high' ? 1.3 : 1;
+      const weatherGainDiscount = weather?.shadeRelevance === 'high' ? 0.7 : 1;
+      const MAX_DETOUR_DIST = 1 + (options.maxDetourPct * weatherBoost) / 100;
+      const MAX_DETOUR_TIME = 1 + (options.maxDetourPct * 1.25 * weatherBoost) / 100;
 
       if (waypoints.length > 0) {
         // ── Step 6: Fetch waypoint route + score (re-use same shadow index) ──
@@ -113,7 +129,7 @@ export function useRouteSearch() {
               const scored = scoreRouteWithIndex(candidate, index, 'MOST_SHADED');
               scored.waypoints = waypoints;
               const shadeGain = scored.shadeScore - scoredFastest.shadeScore;
-              if (shadeGain >= options.minShadeGain && scored.shadeScore >= scoredShaded.shadeScore) {
+              if (shadeGain >= options.minShadeGain * weatherGainDiscount && scored.shadeScore >= scoredShaded.shadeScore) {
                 scoredShaded = scored;
               }
             }

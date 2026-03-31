@@ -5,6 +5,7 @@ import { MapApp } from '@/components/map/MapApp';
 import { Sidebar } from '@/components/sidebar/Sidebar';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useRouteSearch } from '@/hooks/useRouteSearch';
+import { useWeather } from '@/hooks/useWeather';
 import { geocodeAddress } from '@/lib/utils/geocode';
 import type { LatLng, RouteOptions } from '@/types/route';
 
@@ -13,6 +14,7 @@ const DEFAULT_CENTER: LatLng = { lat: 37.7749, lng: -122.4194 };
 export default function ShadeApp() {
   const { location, isLocating } = useUserLocation();
   const routeSearch = useRouteSearch();
+  const { weather, loading: weatherLoading } = useWeather(location);
   const [searchOrigin, setSearchOrigin] = useState<LatLng | null>(null);
   const [searchDest, setSearchDest] = useState<LatLng | null>(null);
   // Coordinate from a map long-press — forwarded to whichever search field is focused
@@ -29,7 +31,7 @@ export default function ShadeApp() {
         if (!dest) throw new Error('Could not determine your destination.');
         setSearchOrigin(origin);
         setSearchDest(dest);
-        await routeSearch.search(origin, dest, time, options);
+        await routeSearch.search(origin, dest, time, options, weather);
       } catch (err) {
         console.error('Search error:', err);
       }
@@ -72,6 +74,8 @@ export default function ShadeApp() {
         searchDest={searchDest}
         selectedRoute={selectedRoute}
         mapPickCoord={mapPickCoord}
+        weather={weather}
+        weatherLoading={weatherLoading}
       />
 
       {isLocating && (

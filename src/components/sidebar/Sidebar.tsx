@@ -6,9 +6,11 @@ import { clsx } from 'clsx';
 import { SearchPanel } from './SearchPanel';
 import { RouteCard } from './RouteCard';
 import { ShadeTimeline } from './ShadeTimeline';
+import { WeatherBadge } from './WeatherBadge';
 import { Spinner } from '@/components/ui/Spinner';
 import { useShadeTimeline } from '@/hooks/useShadeTimeline';
 import type { LatLng, RouteOptions, RouteSearchState, ScoredRoute } from '@/types/route';
+import type { WeatherData } from '@/lib/weather/fetchWeather';
 
 interface Props {
   searchState: RouteSearchState;
@@ -20,6 +22,8 @@ interface Props {
   searchDest: LatLng | null;
   selectedRoute: ScoredRoute | null;
   mapPickCoord?: LatLng | null;
+  weather?: WeatherData | null;
+  weatherLoading?: boolean;
 }
 
 function samplePolylineWaypoints(encodedPolyline: string, count: number): LatLng[] {
@@ -74,7 +78,7 @@ function NavigateButton({ origin, dest, polyline }: { origin: LatLng; dest: LatL
   );
 }
 
-export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, onReset, searchOrigin, searchDest, selectedRoute, mapPickCoord }: Props) {
+export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, onReset, searchOrigin, searchDest, selectedRoute, mapPickCoord, weather, weatherLoading }: Props) {
   // false = peeked (summary only), true = fully open
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -117,6 +121,11 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
           variant="topbar"
           mapPickCoord={mapPickCoord}
         />
+        {(weather || weatherLoading) && (
+          <div className="px-3 pb-2">
+            <WeatherBadge weather={weather ?? null} loading={weatherLoading} />
+          </div>
+        )}
       </div>
 
       {/* Backdrop — dims map when sheet is fully open */}
@@ -257,6 +266,11 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
             hasResult={hasResult}
             mapPickCoord={mapPickCoord}
           />
+          {(weather || weatherLoading) && (
+            <div className="mt-2">
+              <WeatherBadge weather={weather ?? null} loading={weatherLoading} />
+            </div>
+          )}
         </div>
 
         {/* Results section — scrollable */}
