@@ -120,10 +120,14 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
 
       {/* Fixed search bar — always visible at top */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-100 shadow-sm">
-        <div className="flex items-center gap-2 px-3 pt-2 pb-1">
+        <button
+          type="button"
+          onClick={onReset}
+          className="flex items-center gap-2 px-3 pt-2 pb-1 hover:opacity-70 transition-opacity"
+        >
           <span className="text-lg">🌿</span>
           <span className="text-sm font-semibold text-green-700">Prefer Shade</span>
-        </div>
+        </button>
         <SearchPanel
           isLoading={isLoading}
           hasGpsLocation={hasGpsLocation}
@@ -263,8 +267,14 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
 
         {/* Slim brand strip */}
         <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 flex-shrink-0">
-          <span className="text-xl leading-none">🌿</span>
-          <span className="font-bold text-green-700 text-sm tracking-tight">Prefer Shade</span>
+          <button
+            type="button"
+            onClick={onReset}
+            className="flex items-center gap-2 hover:opacity-70 transition-opacity"
+          >
+            <span className="text-xl leading-none">🌿</span>
+            <span className="font-bold text-green-700 text-sm tracking-tight">Prefer Shade</span>
+          </button>
           <span className="ml-auto text-xs text-gray-300">shadow routing</span>
         </div>
 

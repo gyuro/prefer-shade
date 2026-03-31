@@ -6,7 +6,7 @@ import { Sidebar } from '@/components/sidebar/Sidebar';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useRouteSearch } from '@/hooks/useRouteSearch';
 import { useWeather } from '@/hooks/useWeather';
-import { fetchWeather } from '@/lib/weather/fetchWeather';
+import { fetchWeather, type WeatherData } from '@/lib/weather/fetchWeather';
 import { geocodeAddress } from '@/lib/utils/geocode';
 import type { LatLng, RouteOptions } from '@/types/route';
 
@@ -17,15 +17,21 @@ export default function ShadeApp() {
   const routeSearch = useRouteSearch();
   const [searchOrigin, setSearchOrigin] = useState<LatLng | null>(null);
   const [searchDest, setSearchDest] = useState<LatLng | null>(null);
-  const [searchTime, setSearchTime] = useState<Date | null>(null);
-  // Coordinate from a map long-press — forwarded to whichever search field is focused
   const [mapPickCoord, setMapPickCoord] = useState<LatLng | null>(null);
-  // Brief toast message for map long-press feedback
   const [toast, setToast] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const weatherCoord = searchDest ?? searchOrigin ?? location;
-  const { weather, loading: weatherLoading } = useWeather(weatherCoord, searchTime);
+  // Weather explicitly fetched at search time — always matches the searched date.
+  // Falls back to the live hook (pre-search ambient weather) when null.
+  const [searchWeather, setSearchWeather] = useState<WeatherData | null>(null);
+  const [searchWeatherLoading, setSearchWeatherLoading] = useState(false);
+
+  // Live ambient weather (shown before first search or after reset)
+  const ambientCoord = searchDest ?? searchOrigin ?? location;
+  const { weather: ambientWeather, loading: ambientLoading } = useWeather(ambientCoord);
+
+  const displayWeather = searchWeather ?? ambientWeather;
+  const displayWeatherLoading = searchWeatherLoading || (!searchWeather && ambientLoading);
 
   const center = location ?? DEFAULT_CENTER;
 
@@ -38,7 +44,6 @@ export default function ShadeApp() {
   const handleSearch = useCallback(
     async (originText: string | null, destinationText: string | null, time: Date, options: RouteOptions) => {
       try {
-        // Geocode origin + dest in parallel
         const [origin, dest] = await Promise.all([
           originText ? geocodeAddress(originText) : Promise.resolve(location),
           destinationText ? geocodeAddress(destinationText) : Promise.resolve(location),
@@ -48,16 +53,20 @@ export default function ShadeApp() {
 
         setSearchOrigin(origin);
         setSearchDest(dest);
-        setSearchTime(time);
         setMapPickCoord(null);
+        setSearchWeather(null);
+        setSearchWeatherLoading(true);
 
-        // Fetch weather directly for the chosen dest+time so the selected date
-        // is always applied. Using the hook's `weather` value here would be stale
-        // because setSearchTime() only schedules a re-render, not an immediate fetch.
+        // Fetch weather for the exact searched location + time in parallel with routing.
+        // Storing it in state (not just passing to routeSearch) ensures the badge
+        // always reflects the searched date, even if useWeather's cache is stale.
         const freshWeather = await fetchWeather(dest.lat, dest.lng, time);
+        setSearchWeather(freshWeather);
+        setSearchWeatherLoading(false);
 
         await routeSearch.search(origin, dest, time, options, freshWeather);
       } catch (err) {
+        setSearchWeatherLoading(false);
         routeSearch.setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
       }
     },
@@ -68,8 +77,9 @@ export default function ShadeApp() {
     routeSearch.reset();
     setSearchOrigin(null);
     setSearchDest(null);
-    setSearchTime(null);
     setMapPickCoord(null);
+    setSearchWeather(null);
+    setSearchWeatherLoading(false);
   }, [routeSearch]);
 
   const selectedRoute =
@@ -105,8 +115,8 @@ export default function ShadeApp() {
         searchDest={searchDest}
         selectedRoute={selectedRoute}
         mapPickCoord={mapPickCoord}
-        weather={weather}
-        weatherLoading={weatherLoading}
+        weather={displayWeather}
+        weatherLoading={displayWeatherLoading}
       />
 
       {/* Shadow map loading pill */}
