@@ -34,14 +34,25 @@ interface Props {
  * each waypoint anchors Google Maps to a real decision point on the path.
  * Falls back to even spacing when the route is nearly straight.
  */
+/** Haversine distance in metres between two lat/lng points. */
+function haversineM(a: LatLng, b: LatLng): number {
+  const R = 6_371_000;
+  const dLat = (b.lat - a.lat) * (Math.PI / 180);
+  const dLng = (b.lng - a.lng) * (Math.PI / 180);
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * (Math.PI / 180)) * Math.cos(b.lat * (Math.PI / 180)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+}
+
+const MIN_WP_SPACING_M = 50;
+
 function samplePolylineWaypoints(encodedPolyline: string, maxCount: number): LatLng[] {
   const coords = decode(encodedPolyline, 5);
   if (coords.length < 3) return [];
   const interior = coords.slice(1, -1);
   if (interior.length === 0) return [];
 
-  // Compute heading change at each interior point
-  type Scored = { lat: number; lng: number; turn: number };
+  // Compute heading change at each interior point, preserving original index
+  type Scored = { lat: number; lng: number; turn: number; idx: number };
   const scored: Scored[] = interior.map(([lat, lng], i) => {
     const [lat0, lng0] = coords[i];       // previous
     const [lat2, lng2] = coords[i + 2];   // next
@@ -49,30 +60,39 @@ function samplePolylineWaypoints(encodedPolyline: string, maxCount: number): Lat
     const h2 = Math.atan2(lng2 - lng,  lat2 - lat);
     let turn = Math.abs(h2 - h1);
     if (turn > Math.PI) turn = 2 * Math.PI - turn;
-    return { lat, lng, turn };
+    return { lat, lng, turn, idx: i };
   });
 
   // Pick up to maxCount points with the largest turns, then sort by position
-  const byTurn = [...scored].sort((a, b) => b.turn - a.turn).slice(0, maxCount);
-  const byPos  = byTurn.sort((a, b) => {
-    const ia = scored.indexOf(a);
-    const ib = scored.indexOf(b);
-    return ia - ib;
-  });
+  const byPos = [...scored]
+    .sort((a, b) => b.turn - a.turn)
+    .slice(0, maxCount)
+    .sort((a, b) => a.idx - b.idx);
+
+  // Remove near-duplicate waypoints (within MIN_WP_SPACING_M of each other)
+  const deduped: Scored[] = [];
+  for (const pt of byPos) {
+    if (deduped.every(prev => haversineM(prev, pt) >= MIN_WP_SPACING_M)) {
+      deduped.push(pt);
+    }
+  }
 
   // If too few turns are meaningful, pad with evenly-spaced points
-  if (byPos.length < 2 && interior.length >= 2) {
+  if (deduped.length < 2 && interior.length >= 2) {
     const step = interior.length / (maxCount + 1);
-    const evenly: Scored[] = [];
+    const evenly: LatLng[] = [];
     for (let i = 1; i <= maxCount; i++) {
       const idx = Math.min(Math.round(i * step), interior.length - 1);
       const [lat, lng] = interior[idx];
-      evenly.push({ lat, lng, turn: 0 });
+      const pt = { lat, lng };
+      if (evenly.every(prev => haversineM(prev, pt) >= MIN_WP_SPACING_M)) {
+        evenly.push(pt);
+      }
     }
-    return evenly.map(({ lat, lng }) => ({ lat, lng }));
+    return evenly;
   }
 
-  return byPos.map(({ lat, lng }) => ({ lat, lng }));
+  return deduped.map(({ lat, lng }) => ({ lat, lng }));
 }
 
 function buildGoogleMapsUrl(origin: LatLng, dest: LatLng, encodedPolyline?: string): string {
