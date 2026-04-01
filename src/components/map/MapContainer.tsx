@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import Map, { useMap } from 'react-map-gl/maplibre';
+import Map, { useMap, NavigationControl } from 'react-map-gl/maplibre';
 import { decode } from '@googlemaps/polyline-codec';
 import { ShadowOverlay } from './ShadowOverlay';
 import { RoutePolyline } from './RoutePolyline';
@@ -165,6 +165,7 @@ export function MapContainer({ center, ...contentProps }: Props) {
       initialViewState={{ longitude: center.lng, latitude: center.lat, zoom: 4 }}
       style={{ width: '100%', height: '100%' }}
     >
+      <NavigationControl position="bottom-right" showCompass showZoom={false} />
       <MapContent {...contentProps} />
     </Map>
   );

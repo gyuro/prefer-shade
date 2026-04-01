@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { decode } from '@googlemaps/polyline-codec';
 import { fetchRoutes } from '@/lib/routing/fetchRoutes';
 import { scoreRouteWithIndex } from '@/lib/routing/scoreRoute';
@@ -16,8 +16,11 @@ import type { WeatherData } from '@/lib/weather/fetchWeather';
 
 interface ExtendedState extends RouteSearchState {
   shadows: Feature<Polygon>[];
-  /** true while Overpass building data is still loading */
-  shadowLoading: boolean;
+  /**
+   * 0–100 while shadow data is loading; null when idle or complete.
+   * Drives the progress pill shown on the map.
+   */
+  shadowPercent: number | null;
 }
 
 function hasBacktracking(encodedPolyline: string, origin: LatLng, destination: LatLng): boolean {
@@ -42,11 +45,16 @@ const IDLE: ExtendedState = {
   selectedRoute: 'shaded',
   error: null,
   shadows: [],
-  shadowLoading: false,
+  shadowPercent: null,
 };
 
 export function useRouteSearch() {
   const [state, setState] = useState<ExtendedState>(IDLE);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+  }, []);
 
   const search = useCallback(async (
     origin: LatLng,
@@ -55,7 +63,8 @@ export function useRouteSearch() {
     options: RouteOptions = ROUTE_PRESETS.balanced,
     weather?: WeatherData | null,
   ) => {
-    setState((s) => ({ ...s, status: 'routing', fastestRoute: null, shadedRoute: null, shadows: [], error: null, shadowLoading: false }));
+    stopTimer();
+    setState((s) => ({ ...s, status: 'routing', fastestRoute: null, shadedRoute: null, shadows: [], error: null, shadowPercent: null }));
 
     try {
       // Start building fetch immediately (parallel with route fetch)
@@ -70,8 +79,19 @@ export function useRouteSearch() {
       const emptyIndex = new ShadowIndex([]);
       const routePlaceholder = scoreRouteWithIndex(fastest, emptyIndex, 'FASTEST');
 
-      // Show fastest route immediately while buildings finish loading
-      setState((s) => ({ ...s, status: 'scoring', fastestRoute: routePlaceholder, shadedRoute: null, shadows: [], shadowLoading: true }));
+      // Show fastest route immediately; start asymptotic progress simulation.
+      // Approaches ~85 % over time (never reaches it) — jumps to 100 % when
+      // buildings actually arrive so the percentage always feels accurate.
+      const fetchStart = Date.now();
+      setState((s) => ({ ...s, status: 'scoring', fastestRoute: routePlaceholder, shadedRoute: null, shadows: [], shadowPercent: 5 }));
+
+      stopTimer();
+      timerRef.current = setInterval(() => {
+        const t = (Date.now() - fetchStart) / 1000;
+        // Asymptotic curve: 85 * (1 - e^(-t/12)), capped at 85
+        const pct = Math.min(Math.round(85 * (1 - Math.exp(-t / 12))), 85);
+        setState((s) => s.status === 'scoring' ? { ...s, shadowPercent: Math.max(pct, 5) } : s);
+      }, 300);
 
       // ── Precise bbox from actual route polylines ───────────────────────────
       const allRoutePoints: LatLng[] = candidates.flatMap((c) =>
@@ -79,12 +99,12 @@ export function useRouteSearch() {
       );
       const routeBbox = expandBbox(pointsBbox(allRoutePoints), 150);
 
-      // Wait for roughBbox to complete (already in-flight), then fetch precise
-      // bbox — which is an instant cache hit because roughBbox covers it.
-      // No timeout: we always wait for real data so shadows are never missing.
+      // Wait for rough bbox to cache, then precise bbox is an instant cache hit.
       const buildings = await buildingsPromise
         .then(() => fetchBuildings(routeBbox))
         .catch(() => fetchBuildings(routeBbox).catch(() => []));
+
+      stopTimer();
 
       // ── Cast shadow polygons ───────────────────────────────────────────────
       const now = time ?? new Date();
@@ -110,7 +130,7 @@ export function useRouteSearch() {
         scoredShaded.encodedPolyline !== scoredFastest.encodedPolyline ||
         scoredShaded.shadeScore > scoredFastest.shadeScore ? 'shaded' : 'fastest';
 
-      // Mark done — shadow overlay and loading pill update together
+      // Flash 100 % so the user sees completion, then hide after a short delay.
       setState({
         status: 'done',
         fastestRoute: scoredFastest,
@@ -118,8 +138,9 @@ export function useRouteSearch() {
         selectedRoute: weather?.shadeRelevance === 'none' ? 'fastest' : initialSelectedRoute,
         error: null,
         shadows,
-        shadowLoading: false,
+        shadowPercent: 100,
       });
+      setTimeout(() => setState((s) => s.status === 'done' ? { ...s, shadowPercent: null } : s), 700);
 
       if (weather?.shadeRelevance === 'none') return;
 
@@ -151,21 +172,24 @@ export function useRouteSearch() {
         } catch { /* Waypoint route failed — keep initial scored route */ }
       }
     } catch (err) {
-      setState({ status: 'error', fastestRoute: null, shadedRoute: null, selectedRoute: 'shaded', error: err instanceof Error ? err.message : String(err), shadows: [], shadowLoading: false });
+      stopTimer();
+      setState({ status: 'error', fastestRoute: null, shadedRoute: null, selectedRoute: 'shaded', error: err instanceof Error ? err.message : String(err), shadows: [], shadowPercent: null });
     }
-  }, []);
+  }, [stopTimer]);
 
   const selectRoute = useCallback((which: 'fastest' | 'shaded') => {
     setState((s) => ({ ...s, selectedRoute: which }));
   }, []);
 
   const setError = useCallback((msg: string) => {
+    stopTimer();
     setState({ ...IDLE, status: 'error', error: msg });
-  }, []);
+  }, [stopTimer]);
 
   const reset = useCallback(() => {
+    stopTimer();
     setState(IDLE);
-  }, []);
+  }, [stopTimer]);
 
   return { ...state, search, selectRoute, reset, setError };
 }

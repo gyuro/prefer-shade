@@ -40,6 +40,6 @@ export interface RouteSearchState {
   shadedRoute: ScoredRoute | null;
   selectedRoute: 'fastest' | 'shaded';
   error: string | null;
-  /** true while shadow data is loading from Overpass */
-  shadowLoading?: boolean;
+  /** 0–100 while shadow data is loading; null when idle or complete */
+  shadowPercent?: number | null;
 }
