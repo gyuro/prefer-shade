@@ -14,7 +14,6 @@ interface Props {
   center: LatLng;
   userLocation: LatLng | null;
   pickedLocation?: LatLng | null;
-  heading?: number | null;
   onLongPress?: (coord: LatLng) => void;
 }
 
