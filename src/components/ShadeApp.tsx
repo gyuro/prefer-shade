@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/sidebar/Sidebar';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useRouteSearch } from '@/hooks/useRouteSearch';
 import { useWeather } from '@/hooks/useWeather';
+import { useDeviceHeading } from '@/hooks/useDeviceHeading';
 import { fetchWeather, type WeatherData } from '@/lib/weather/fetchWeather';
 import { geocodeAddress } from '@/lib/utils/geocode';
 import type { LatLng, RouteOptions } from '@/types/route';
@@ -14,6 +15,7 @@ const DEFAULT_CENTER: LatLng = { lat: 37.7749, lng: -122.4194 };
 
 export default function ShadeApp() {
   const { location, isLocating } = useUserLocation();
+  const { heading, needsPermission, requestPermission } = useDeviceHeading();
   const routeSearch = useRouteSearch();
   const [searchOrigin, setSearchOrigin] = useState<LatLng | null>(null);
   const [searchDest, setSearchDest] = useState<LatLng | null>(null);
@@ -99,6 +101,7 @@ export default function ShadeApp() {
         center={center}
         userLocation={location}
         pickedLocation={mapPickCoord}
+        heading={heading}
         onLongPress={(coord) => {
           setMapPickCoord({ ...coord });
           showToast('📍 Location picked');
@@ -143,6 +146,18 @@ export default function ShadeApp() {
         <div className="absolute top-24 md:top-6 left-1/2 -translate-x-1/2 z-50 bg-gray-800/90 text-white text-sm px-4 py-2 rounded-full shadow-lg pointer-events-none">
           {toast}
         </div>
+      )}
+
+      {/* iOS compass permission prompt */}
+      {needsPermission && (
+        <button
+          type="button"
+          onClick={requestPermission}
+          className="absolute bottom-16 right-4 md:bottom-20 md:right-6 z-30 bg-white text-gray-700 text-xs px-3 py-2 rounded-full shadow-md flex items-center gap-2 border border-gray-200 hover:bg-gray-50 transition-colors"
+        >
+          <span>🧭</span>
+          Enable compass
+        </button>
       )}
 
       {isLocating && (

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import Map, { useMap, NavigationControl } from 'react-map-gl/maplibre';
+import { useState } from 'react';
 import { decode } from '@googlemaps/polyline-codec';
 import { ShadowOverlay } from './ShadowOverlay';
 import { RoutePolyline } from './RoutePolyline';
@@ -77,11 +78,20 @@ interface MapContentProps {
   destination: LatLng | null;
   userLocation: LatLng | null;
   pickedLocation?: LatLng | null;
+  heading?: number | null;
   onLongPress?: (coord: LatLng) => void;
 }
 
-function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin, destination, userLocation, pickedLocation, onLongPress }: MapContentProps) {
+function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin, destination, userLocation, pickedLocation, heading, onLongPress }: MapContentProps) {
   const { current: map } = useMap();
+  const [mapBearing, setMapBearing] = useState(0);
+
+  useEffect(() => {
+    if (!map) return;
+    const onRotate = () => setMapBearing(map.getBearing());
+    map.on('rotate', onRotate);
+    return () => { map.off('rotate', onRotate); };
+  }, [map]);
   // Track both route polylines so fitBounds re-fires when the shaded route
   // arrives with a different geometry after shadow computation completes.
   const fittedKeyRef = useRef<string | null>(null);
@@ -148,7 +158,7 @@ function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin,
         )
       )}
 
-      <RouteMarkers origin={origin} destination={destination} userLocation={userLocation} pickedLocation={pickedLocation} />
+      <RouteMarkers origin={origin} destination={destination} userLocation={userLocation} pickedLocation={pickedLocation} heading={heading} mapBearing={mapBearing} />
     </>
   );
 }
