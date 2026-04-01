@@ -6,6 +6,7 @@ import { decode } from '@googlemaps/polyline-codec';
 import { ShadowOverlay } from './ShadowOverlay';
 import { RoutePolyline } from './RoutePolyline';
 import { RouteMarkers } from './RouteMarkers';
+import { useNavigationContext } from '@/context/NavigationContext';
 import type { Feature, Polygon } from 'geojson';
 import type { LatLng, ScoredRoute } from '@/types/route';
 
@@ -121,6 +122,8 @@ interface MapContentProps {
 function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin, destination, userLocation, pickedLocation, onSelectRoute, onLongPress }: MapContentProps) {
   const { current: map } = useMap();
   const [mapBearing, setMapBearing] = useState(0);
+  const { session } = useNavigationContext();
+  const navActive = session.isActive;
 
   useEffect(() => {
     if (!map) return;
@@ -133,20 +136,35 @@ function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin,
     map?.easeTo({ bearing: 0, duration: 300 });
   }, [map]);
 
+  // During navigation: follow live position with heading-up camera
+  const liveLocation = session.liveLocation;
+  useEffect(() => {
+    if (!map || !navActive || !liveLocation) return;
+    map.easeTo({
+      center: [liveLocation.lng, liveLocation.lat],
+      bearing: liveLocation.heading ?? mapBearing,
+      zoom: 17,
+      pitch: 45,
+      duration: 400,
+    });
+  // mapBearing intentionally omitted — only heading from GPS drives this
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, navActive, liveLocation]);
+
   // Track both route polylines so fitBounds re-fires when the shaded route
   // arrives with a different geometry after shadow computation completes.
   const fittedKeyRef = useRef<string | null>(null);
   const centeredOnGpsRef = useRef(false);
 
-  // Fly to GPS location once it first resolves — skip if a route is already shown
+  // Fly to GPS location once it first resolves — skip if a route is already shown or navigating
   useEffect(() => {
-    if (!map || !userLocation || centeredOnGpsRef.current || fastestRoute) return;
+    if (!map || !userLocation || centeredOnGpsRef.current || fastestRoute || navActive) return;
     centeredOnGpsRef.current = true;
     map.flyTo({ center: [userLocation.lng, userLocation.lat], zoom: 15, duration: 800 });
-  }, [map, userLocation, fastestRoute]);
+  }, [map, userLocation, fastestRoute, navActive]);
 
   useEffect(() => {
-    if (!map || !fastestRoute) return;
+    if (!map || !fastestRoute || navActive) return;
     const fittedKey = `${fastestRoute.encodedPolyline}|${shadedRoute?.encodedPolyline ?? ''}`;
     if (fittedKey === fittedKeyRef.current) return;
     fittedKeyRef.current = fittedKey;
@@ -177,7 +195,7 @@ function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin,
         duration: 800,
       }
     );
-  }, [map, fastestRoute, shadedRoute, origin, destination]);
+  }, [map, fastestRoute, shadedRoute, origin, destination, navActive]);
 
   const hasBothDistinct =
     fastestRoute && shadedRoute &&

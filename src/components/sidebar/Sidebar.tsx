@@ -18,6 +18,7 @@ interface Props {
   onSearch: (origin: string | null, destination: string | null, time: Date, options: RouteOptions) => void;
   onSelectRoute: (which: 'fastest' | 'shaded') => void;
   onReset: () => void;
+  onStartNavigation: () => void;
   searchOrigin: LatLng | null;
   searchDest: LatLng | null;
   selectedRoute: ScoredRoute | null;
@@ -139,7 +140,7 @@ function NavigateButton({ origin, dest, route }: { origin: LatLng; dest: LatLng;
   );
 }
 
-export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, onReset, searchOrigin, searchDest, selectedRoute, mapPickCoord, weather, weatherLoading }: Props) {
+export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, onReset, onStartNavigation, searchOrigin, searchDest, selectedRoute, mapPickCoord, weather, weatherLoading }: Props) {
   // false = peeked (summary only), true = fully open
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -303,11 +304,19 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
             )}
 
             {hasResult && searchOrigin && searchDest && selectedRoute && (
-              <NavigateButton
-                origin={searchOrigin}
-                dest={searchDest}
-                route={selectedRoute}
-              />
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={onStartNavigation}
+                  className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 2L4.5 20.5l7.5-3 7.5 3L12 2z" />
+                  </svg>
+                  Start Navigation
+                </button>
+                <NavigateButton origin={searchOrigin} dest={searchDest} route={selectedRoute} />
+              </div>
             )}
 
             <ShadeTimeline timeline={timeline} loading={timelineLoading} hasRoute={hasResult} />
@@ -412,12 +421,18 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
 
           {/* Navigate */}
           {hasResult && searchOrigin && searchDest && selectedRoute && (
-            <div className="px-4 pt-3">
-              <NavigateButton
-                origin={searchOrigin}
-                dest={searchDest}
-                route={selectedRoute}
-              />
+            <div className="px-4 pt-3 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={onStartNavigation}
+                className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 2L4.5 20.5l7.5-3 7.5 3L12 2z" />
+                </svg>
+                Start Navigation
+              </button>
+              <NavigateButton origin={searchOrigin} dest={searchDest} route={selectedRoute} />
             </div>
           )}
 

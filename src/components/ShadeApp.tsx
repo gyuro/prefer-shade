@@ -3,6 +3,8 @@
 import { useCallback, useState, useRef } from 'react';
 import { MapApp } from '@/components/map/MapApp';
 import { Sidebar } from '@/components/sidebar/Sidebar';
+import { NavigationHUD } from '@/components/navigation/NavigationHUD';
+import { NavigationProvider, useNavigationContext } from '@/context/NavigationContext';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useRouteSearch } from '@/hooks/useRouteSearch';
 import { useWeather } from '@/hooks/useWeather';
@@ -12,21 +14,19 @@ import type { LatLng, RouteOptions } from '@/types/route';
 
 const DEFAULT_CENTER: LatLng = { lat: 37.7749, lng: -122.4194 };
 
-export default function ShadeApp() {
+function ShadeAppInner() {
   const { location, isLocating } = useUserLocation();
   const routeSearch = useRouteSearch();
+  const { session, start: startNav } = useNavigationContext();
   const [searchOrigin, setSearchOrigin] = useState<LatLng | null>(null);
   const [searchDest, setSearchDest] = useState<LatLng | null>(null);
   const [mapPickCoord, setMapPickCoord] = useState<LatLng | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Weather explicitly fetched at search time — always matches the searched date.
-  // Falls back to the live hook (pre-search ambient weather) when null.
   const [searchWeather, setSearchWeather] = useState<WeatherData | null>(null);
   const [searchWeatherLoading, setSearchWeatherLoading] = useState(false);
 
-  // Live ambient weather (shown before first search or after reset)
   const ambientCoord = searchDest ?? searchOrigin ?? location;
   const { weather: ambientWeather, loading: ambientLoading } = useWeather(ambientCoord);
 
@@ -57,9 +57,6 @@ export default function ShadeApp() {
         setSearchWeather(null);
         setSearchWeatherLoading(true);
 
-        // Fetch weather for the exact searched location + time in parallel with routing.
-        // Storing it in state (not just passing to routeSearch) ensures the badge
-        // always reflects the searched date, even if useWeather's cache is stale.
         const freshWeather = await fetchWeather(dest.lat, dest.lng, time);
         setSearchWeather(freshWeather);
         setSearchWeatherLoading(false);
@@ -87,6 +84,14 @@ export default function ShadeApp() {
       ? routeSearch.shadedRoute
       : routeSearch.fastestRoute;
 
+  const handleStartNavigation = useCallback(() => {
+    if (selectedRoute && searchDest) {
+      startNav(selectedRoute, searchDest);
+    }
+  }, [selectedRoute, searchDest, startNav]);
+
+  const navActive = session.isActive || session.arrived;
+
   return (
     <div className="relative w-full h-screen">
       <MapApp
@@ -106,19 +111,25 @@ export default function ShadeApp() {
         }}
       />
 
-      <Sidebar
-        searchState={routeSearch}
-        hasGpsLocation={!!location}
-        onSearch={handleSearch}
-        onSelectRoute={routeSearch.selectRoute}
-        onReset={handleReset}
-        searchOrigin={searchOrigin}
-        searchDest={searchDest}
-        selectedRoute={selectedRoute}
-        mapPickCoord={mapPickCoord}
-        weather={displayWeather}
-        weatherLoading={displayWeatherLoading}
-      />
+      {/* Hide sidebar while navigating */}
+      {!navActive && (
+        <Sidebar
+          searchState={routeSearch}
+          hasGpsLocation={!!location}
+          onSearch={handleSearch}
+          onSelectRoute={routeSearch.selectRoute}
+          onReset={handleReset}
+          onStartNavigation={handleStartNavigation}
+          searchOrigin={searchOrigin}
+          searchDest={searchDest}
+          selectedRoute={selectedRoute}
+          mapPickCoord={mapPickCoord}
+          weather={displayWeather}
+          weatherLoading={displayWeatherLoading}
+        />
+      )}
+
+      <NavigationHUD />
 
       {/* Long-press feedback toast */}
       {toast && (
@@ -127,12 +138,20 @@ export default function ShadeApp() {
         </div>
       )}
 
-      {isLocating && (
+      {isLocating && !navActive && (
         <div className="absolute bottom-4 right-4 md:bottom-6 md:right-6 bg-white text-gray-600 text-xs px-3 py-2 rounded-full shadow-md flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
           Getting your location...
         </div>
       )}
     </div>
+  );
+}
+
+export default function ShadeApp() {
+  return (
+    <NavigationProvider>
+      <ShadeAppInner />
+    </NavigationProvider>
   );
 }
