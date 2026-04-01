@@ -14,6 +14,7 @@ interface Props {
   center: LatLng;
   userLocation: LatLng | null;
   pickedLocation?: LatLng | null;
+  onSelectRoute: (r: 'fastest' | 'shaded') => void;
   onLongPress?: (coord: LatLng) => void;
 }
 

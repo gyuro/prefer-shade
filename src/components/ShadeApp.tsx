@@ -99,6 +99,7 @@ export default function ShadeApp() {
         center={center}
         userLocation={location}
         pickedLocation={mapPickCoord}
+        onSelectRoute={routeSearch.selectRoute}
         onLongPress={(coord) => {
           setMapPickCoord({ ...coord });
           showToast('📍 Location picked');

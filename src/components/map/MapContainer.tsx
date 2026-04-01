@@ -114,10 +114,11 @@ interface MapContentProps {
   destination: LatLng | null;
   userLocation: LatLng | null;
   pickedLocation?: LatLng | null;
+  onSelectRoute: (r: 'fastest' | 'shaded') => void;
   onLongPress?: (coord: LatLng) => void;
 }
 
-function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin, destination, userLocation, pickedLocation, onLongPress }: MapContentProps) {
+function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin, destination, userLocation, pickedLocation, onSelectRoute, onLongPress }: MapContentProps) {
   const { current: map } = useMap();
   const [mapBearing, setMapBearing] = useState(0);
 
@@ -189,8 +190,8 @@ function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin,
 
       {hasBothDistinct ? (
         <>
-          <RoutePolyline key="fastest" route={fastestRoute!} isSelected={selectedRoute === 'fastest'} zIndex={selectedRoute === 'fastest' ? 2 : 1} />
-          <RoutePolyline key="shaded" route={shadedRoute!} isSelected={selectedRoute === 'shaded'} zIndex={selectedRoute === 'shaded' ? 2 : 1} />
+          <RoutePolyline key="fastest" route={fastestRoute!} isSelected={selectedRoute === 'fastest'} zIndex={selectedRoute === 'fastest' ? 2 : 1} onSelect={() => onSelectRoute('fastest')} />
+          <RoutePolyline key="shaded" route={shadedRoute!} isSelected={selectedRoute === 'shaded'} zIndex={selectedRoute === 'shaded' ? 2 : 1} onSelect={() => onSelectRoute('shaded')} />
         </>
       ) : (
         fastestRoute && (
