@@ -146,9 +146,8 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
   const isRouting = searchState.status === 'routing';
   const isScoring = searchState.status === 'scoring';
   const isLoading = isRouting || isScoring;
-  // While scoring with a fast route already shown, the map pill covers progress —
-  // no need to show a loading row in the sidebar too.
   const showLoadingRow = isRouting || (isScoring && !searchState.fastestRoute);
+  const showShadowProgress = isScoring && !!searchState.fastestRoute && searchState.shadowPercent !== null;
   const hasResult = searchState.status === 'done';
   const hasContent = isLoading || hasResult || searchState.status === 'error';
 
@@ -229,6 +228,18 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
               <div className="flex items-center gap-2.5 text-sm text-gray-500">
                 <Spinner className="w-4 h-4 text-green-500" />
                 <span>{statusLabel(searchState.status)}</span>
+              </div>
+            ) : showShadowProgress ? (
+              <div className="flex items-center gap-2.5 w-full text-sm text-gray-500">
+                <span className="text-base opacity-70">🌘</span>
+                <span className="whitespace-nowrap">Shadow map</span>
+                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-green-500 rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${searchState.shadowPercent}%` }}
+                  />
+                </div>
+                <span className="tabular-nums text-xs w-7 text-right font-medium">{searchState.shadowPercent}%</span>
               </div>
             ) : searchState.status === 'error' ? (
               <p className="text-sm text-red-600 flex-1">{searchState.error}</p>
@@ -349,12 +360,25 @@ export function Sidebar({ searchState, hasGpsLocation, onSearch, onSelectRoute, 
         <div className="flex-1 overflow-y-auto min-h-0">
 
           {/* Status / error */}
-          {(showLoadingRow || searchState.status === 'error') && (
+          {(showLoadingRow || showShadowProgress || searchState.status === 'error') && (
             <div className="px-4 py-3">
               {showLoadingRow && (
                 <div className="flex items-center gap-2.5 text-sm text-gray-500">
                   <Spinner className="w-4 h-4 text-green-500" />
                   <span>{statusLabel(searchState.status)}</span>
+                </div>
+              )}
+              {showShadowProgress && (
+                <div className="flex items-center gap-2.5 text-sm text-gray-500">
+                  <span className="text-base opacity-70">🌘</span>
+                  <span className="whitespace-nowrap">Shadow map</span>
+                  <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-green-500 rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${searchState.shadowPercent}%` }}
+                    />
+                  </div>
+                  <span className="tabular-nums text-xs w-7 text-right font-medium">{searchState.shadowPercent}%</span>
                 </div>
               )}
               {searchState.status === 'error' && searchState.error && (
