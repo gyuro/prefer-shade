@@ -26,22 +26,56 @@ interface Props {
   weatherLoading?: boolean;
 }
 
-function samplePolylineWaypoints(encodedPolyline: string, count: number): LatLng[] {
+/**
+ * Sample waypoints at direction-change points in the polyline so Google Maps
+ * follows the actual computed route as closely as possible.
+ *
+ * Strategy: pick points at the sharpest turns (largest heading change) so
+ * each waypoint anchors Google Maps to a real decision point on the path.
+ * Falls back to even spacing when the route is nearly straight.
+ */
+function samplePolylineWaypoints(encodedPolyline: string, maxCount: number): LatLng[] {
   const coords = decode(encodedPolyline, 5);
-  if (coords.length < 3 || count < 1) return [];
+  if (coords.length < 3) return [];
   const interior = coords.slice(1, -1);
   if (interior.length === 0) return [];
-  const step = interior.length / (count + 1);
-  const result: LatLng[] = [];
-  for (let i = 1; i <= count; i++) {
-    const idx = Math.min(Math.round(i * step), interior.length - 1);
-    const [lat, lng] = interior[idx];
-    result.push({ lat, lng });
+
+  // Compute heading change at each interior point
+  type Scored = { lat: number; lng: number; turn: number };
+  const scored: Scored[] = interior.map(([lat, lng], i) => {
+    const [lat0, lng0] = coords[i];       // previous
+    const [lat2, lng2] = coords[i + 2];   // next
+    const h1 = Math.atan2(lng  - lng0, lat  - lat0);
+    const h2 = Math.atan2(lng2 - lng,  lat2 - lat);
+    let turn = Math.abs(h2 - h1);
+    if (turn > Math.PI) turn = 2 * Math.PI - turn;
+    return { lat, lng, turn };
+  });
+
+  // Pick up to maxCount points with the largest turns, then sort by position
+  const byTurn = [...scored].sort((a, b) => b.turn - a.turn).slice(0, maxCount);
+  const byPos  = byTurn.sort((a, b) => {
+    const ia = scored.indexOf(a);
+    const ib = scored.indexOf(b);
+    return ia - ib;
+  });
+
+  // If too few turns are meaningful, pad with evenly-spaced points
+  if (byPos.length < 2 && interior.length >= 2) {
+    const step = interior.length / (maxCount + 1);
+    const evenly: Scored[] = [];
+    for (let i = 1; i <= maxCount; i++) {
+      const idx = Math.min(Math.round(i * step), interior.length - 1);
+      const [lat, lng] = interior[idx];
+      evenly.push({ lat, lng, turn: 0 });
+    }
+    return evenly.map(({ lat, lng }) => ({ lat, lng }));
   }
-  return result;
+
+  return byPos.map(({ lat, lng }) => ({ lat, lng }));
 }
 
-function buildGoogleMapsUrl(origin: LatLng, dest: LatLng, routingWaypoints?: LatLng[], encodedPolyline?: string): string {
+function buildGoogleMapsUrl(origin: LatLng, dest: LatLng, encodedPolyline?: string): string {
   const params = new URLSearchParams({
     api: '1',
     origin: `${origin.lat},${origin.lng}`,
@@ -49,20 +83,15 @@ function buildGoogleMapsUrl(origin: LatLng, dest: LatLng, routingWaypoints?: Lat
     travelmode: 'walking',
   });
 
-  // Prefer the actual OSRM routing waypoints — these are the exact decision
-  // points used to steer the route onto shadier streets, so Google Maps will
-  // follow the same path.  Fall back to polyline sampling only when the shaded
-  // route has no custom waypoints (i.e. the fastest and shaded routes are the
-  // same, or shade optimisation was skipped).
-  const wps: LatLng[] =
-    routingWaypoints && routingWaypoints.length > 0
-      ? routingWaypoints
-      : encodedPolyline
-        ? samplePolylineWaypoints(encodedPolyline, 4)
-        : [];
-
-  if (wps.length > 0) {
-    params.set('waypoints', wps.map((w) => `${w.lat},${w.lng}`).join('|'));
+  // Always derive waypoints from the actual route polyline — the OSRM
+  // optimisation probe points are offset from the road and cause Google Maps
+  // to snap to a different street.  Sampling turn-points from the polyline
+  // gives Google Maps real on-road anchors that match the computed path.
+  if (encodedPolyline) {
+    const wps = samplePolylineWaypoints(encodedPolyline, 9);
+    if (wps.length > 0) {
+      params.set('waypoints', wps.map((w) => `${w.lat},${w.lng}`).join('|'));
+    }
   }
 
   return `https://www.google.com/maps/dir/?${params.toString()}`;
@@ -77,7 +106,7 @@ function statusLabel(status: string): string {
 function NavigateButton({ origin, dest, route }: { origin: LatLng; dest: LatLng; route: ScoredRoute }) {
   return (
     <a
-      href={buildGoogleMapsUrl(origin, dest, route.waypoints, route.encodedPolyline)}
+      href={buildGoogleMapsUrl(origin, dest, route.encodedPolyline)}
       target="_blank"
       rel="noopener noreferrer"
       className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
