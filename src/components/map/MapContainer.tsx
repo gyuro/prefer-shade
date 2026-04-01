@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import Map, { useMap, NavigationControl } from 'react-map-gl/maplibre';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Map, { useMap } from 'react-map-gl/maplibre';
 import { decode } from '@googlemaps/polyline-codec';
 import { ShadowOverlay } from './ShadowOverlay';
 import { RoutePolyline } from './RoutePolyline';
@@ -69,6 +68,66 @@ function LongPressHandler({ onLongPress }: { onLongPress?: (coord: LatLng) => vo
   return null;
 }
 
+/**
+ * Custom compass button — replaces MapLibre's NavigationControl compass.
+ *
+ * Behaviour (mirrors Google Maps):
+ *  • North-up (default): needle points north, rotates as map rotates.
+ *    Tap → enter heading-up mode (only if compass heading available).
+ *    Tap when no heading → reset bearing to north.
+ *  • Heading-up: map bearing tracks device heading so the direction you're
+ *    facing is always at the top. Needle always points "up" (= your heading).
+ *    Tap → exit heading-up, reset to north.
+ */
+function CompassButton({
+  mapBearing,
+  headingUp,
+  hasHeading,
+  onToggle,
+}: {
+  mapBearing: number;
+  headingUp: boolean;
+  hasHeading: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div style={{ position: 'absolute', bottom: 10, right: 10, zIndex: 20 }}>
+      <button
+        type="button"
+        onClick={onToggle}
+        title={headingUp ? 'Heading-up — tap to reset north' : hasHeading ? 'North-up — tap for heading-up' : 'Tap to reset north'}
+        style={{
+          width: 29,
+          height: 29,
+          borderRadius: 4,
+          border: headingUp ? '2px solid #3b82f6' : '1px solid rgba(0,0,0,0.15)',
+          background: headingUp ? '#3b82f6' : 'white',
+          boxShadow: '0 0 0 2px rgba(0,0,0,0.1)',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 0,
+          transition: 'background 0.2s, border-color 0.2s',
+        }}
+      >
+        <svg
+          viewBox="0 0 29 29"
+          width="29"
+          height="29"
+          xmlns="http://www.w3.org/2000/svg"
+          style={{ transform: `rotate(${-mapBearing}deg)`, transition: 'transform 0.1s linear' }}
+        >
+          {/* North half — red in north-up, white in heading-up */}
+          <path fill={headingUp ? 'white' : '#ef4444'} d="m10.5 14 4-8 4 8z" />
+          {/* South half */}
+          <path fill={headingUp ? 'rgba(255,255,255,0.55)' : '#ccc'} d="m10.5 16 4 8 4-8z" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 interface MapContentProps {
   shadows: Feature<Polygon>[];
   fastestRoute: ScoredRoute | null;
@@ -79,21 +138,22 @@ interface MapContentProps {
   userLocation: LatLng | null;
   pickedLocation?: LatLng | null;
   heading?: number | null;
-  headingUp: boolean;
-  onHeadingUpChange: (v: boolean) => void;
   onLongPress?: (coord: LatLng) => void;
 }
 
-function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin, destination, userLocation, pickedLocation, heading, headingUp, onHeadingUpChange, onLongPress }: MapContentProps) {
+function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin, destination, userLocation, pickedLocation, heading, onLongPress }: MapContentProps) {
   const { current: map } = useMap();
   const [mapBearing, setMapBearing] = useState(0);
+  const [headingUp, setHeadingUp] = useState(false);
 
+  const hasHeading = heading != null;
+
+  // Track map bearing; exit heading-up when user manually rotates
   useEffect(() => {
     if (!map) return;
     const onRotate = () => setMapBearing(map.getBearing());
-    // Exit heading-up mode when the user manually rotates the map
     const onRotateStart = (e: { originalEvent?: Event }) => {
-      if (e.originalEvent) onHeadingUpChange(false);
+      if (e.originalEvent) setHeadingUp(false);
     };
     map.on('rotate', onRotate);
     map.on('rotatestart', onRotateStart);
@@ -101,13 +161,27 @@ function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin,
       map.off('rotate', onRotate);
       map.off('rotatestart', onRotateStart);
     };
-  }, [map, onHeadingUpChange]);
+  }, [map]);
 
-  // Rotate map to match device heading when heading-up mode is active
+  // Continuously rotate map to device heading when heading-up is active
   useEffect(() => {
     if (!map || !headingUp || heading == null) return;
     map.easeTo({ bearing: heading, duration: 150, easing: (t) => t });
   }, [map, headingUp, heading]);
+
+  const toggleCompass = useCallback(() => {
+    if (headingUp) {
+      // Exit heading-up → snap back to north
+      setHeadingUp(false);
+      map?.easeTo({ bearing: 0, duration: 300 });
+    } else if (hasHeading) {
+      // Enter heading-up mode
+      setHeadingUp(true);
+    } else {
+      // No compass available — just reset bearing to north
+      map?.easeTo({ bearing: 0, duration: 300 });
+    }
+  }, [headingUp, hasHeading, map]);
 
   // Track both route polylines so fitBounds re-fires when the shaded route
   // arrives with a different geometry after shadow computation completes.
@@ -176,18 +250,17 @@ function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin,
       )}
 
       <RouteMarkers origin={origin} destination={destination} userLocation={userLocation} pickedLocation={pickedLocation} heading={heading} mapBearing={mapBearing} />
+
+      <CompassButton mapBearing={mapBearing} headingUp={headingUp} hasHeading={hasHeading} onToggle={toggleCompass} />
     </>
   );
 }
 
-interface Props extends Omit<MapContentProps, 'headingUp' | 'onHeadingUpChange'> {
+interface Props extends MapContentProps {
   center: LatLng;
 }
 
 export function MapContainer({ center, ...contentProps }: Props) {
-  const [headingUp, setHeadingUp] = useState(false);
-  const hasHeading = contentProps.heading != null;
-
   return (
     <Map
       id="shade-map"
@@ -195,29 +268,7 @@ export function MapContainer({ center, ...contentProps }: Props) {
       initialViewState={{ longitude: center.lng, latitude: center.lat, zoom: 4 }}
       style={{ width: '100%', height: '100%' }}
     >
-      <NavigationControl position="bottom-right" showCompass showZoom={false} />
-      <MapContent {...contentProps} headingUp={headingUp} onHeadingUpChange={setHeadingUp} />
-
-      {/* Heading-up toggle — only shown when device compass is available */}
-      {hasHeading && (
-        <div className="absolute bottom-24 right-2.5 md:bottom-28 md:right-2.5 z-20">
-          <button
-            type="button"
-            title={headingUp ? 'Switch to north-up' : 'Switch to heading-up'}
-            onClick={() => setHeadingUp(v => !v)}
-            className={`w-[29px] h-[29px] rounded flex items-center justify-center shadow-md border transition-colors ${
-              headingUp
-                ? 'bg-blue-500 border-blue-600 text-white'
-                : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            {/* Arrow pointing up — represents "heading up" / direction of travel */}
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2 L7 10 L10.5 10 L10.5 22 L13.5 22 L13.5 10 L17 10 Z" />
-            </svg>
-          </button>
-        </div>
-      )}
+      <MapContent {...contentProps} />
     </Map>
   );
 }
