@@ -28,19 +28,17 @@ function PinIcon({ color, border }: { color: string; border: string }) {
 
 function PickedPin() {
   return (
-    <div className="flex flex-col items-center" style={{ marginBottom: 28 }}>
-      <div className="relative flex items-center justify-center">
-        <div className="absolute w-8 h-8 rounded-full bg-violet-400 opacity-30 animate-ping" />
-        <svg viewBox="0 0 22 28" width="22" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path
-            d="M11 1C6.58 1 3 4.58 3 9c0 6 8 18 8 18s8-12 8-18c0-4.42-3.58-8-8-8z"
-            fill="#7c3aed"
-            stroke="#4c1d95"
-            strokeWidth="1.5"
-          />
-          <circle cx="11" cy="9" r="3" fill="white" />
-        </svg>
-      </div>
+    <div className="relative">
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-violet-400 opacity-30 animate-ping" />
+      <svg viewBox="0 0 22 28" width="22" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path
+          d="M11 1C6.58 1 3 4.58 3 9c0 6 8 18 8 18s8-12 8-18c0-4.42-3.58-8-8-8z"
+          fill="#7c3aed"
+          stroke="#4c1d95"
+          strokeWidth="1.5"
+        />
+        <circle cx="11" cy="9" r="3" fill="white" />
+      </svg>
     </div>
   );
 }

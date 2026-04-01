@@ -7,3 +7,8 @@ body {
   margin: 0;
   padding: 0;
 }
+
+/* Compass north arrow — red fill */
+.maplibregl-ctrl-compass-north {
+  fill: #ef4444;
+}
