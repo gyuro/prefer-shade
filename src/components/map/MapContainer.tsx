@@ -152,6 +152,16 @@ function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, navActive, liveLocation, perspectiveView]);
 
+  // Reset pitch and bearing to normal view when navigation ends
+  const prevNavActiveRef = useRef(false);
+  useEffect(() => {
+    if (!map) return;
+    if (prevNavActiveRef.current && !navActive) {
+      map.easeTo({ pitch: 0, bearing: 0, duration: 600 });
+    }
+    prevNavActiveRef.current = navActive;
+  }, [map, navActive]);
+
   // Track both route polylines so fitBounds re-fires when the shaded route
   // arrives with a different geometry after shadow computation completes.
   const fittedKeyRef = useRef<string | null>(null);

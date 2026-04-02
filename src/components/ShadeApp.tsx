@@ -111,8 +111,9 @@ function ShadeAppInner() {
         }}
       />
 
-      {/* Hide sidebar while navigating */}
-      {!navActive && (
+      {/* Keep Sidebar mounted so search fields retain their values after navigation ends.
+          Hide it visually during navigation — display:none propagates to fixed children. */}
+      <div style={{ display: navActive ? 'none' : undefined }}>
         <Sidebar
           searchState={routeSearch}
           hasGpsLocation={!!location}
@@ -127,7 +128,7 @@ function ShadeAppInner() {
           weather={displayWeather}
           weatherLoading={displayWeatherLoading}
         />
-      )}
+      </div>
 
       <NavigationHUD />
 
