@@ -289,9 +289,11 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
   }, [isLoading, hasResult]);
 
   const handleSwap = () => {
-    const tmp = origin;
+    // If origin was empty (implicit GPS via hasGpsLocation), convert to the
+    // GPS sentinel before swapping so dest stays valid for canSearch.
+    const effectiveOrigin = origin === '' && hasGpsLocation ? GPS : origin;
     setOrigin(dest);
-    setDest(tmp);
+    setDest(effectiveOrigin);
   };
 
   const setNow = () => {
