@@ -22,7 +22,7 @@ function formatRemaining(sec: number): string {
 }
 
 export function NavigationHUD() {
-  const { session, stop } = useNavigationContext();
+  const { session, stop, perspectiveView, togglePerspective } = useNavigationContext();
   const { isActive, arrived, instructions, nextInstructionIndex, distanceToNextTurnM, distanceRemainingM, secondsRemaining, eta } = session;
 
   // Auto-stop 3 seconds after arrival
@@ -62,13 +62,22 @@ export function NavigationHUD() {
         </div>
       </div>
 
-      {/* Bottom bar — remaining + end */}
+      {/* Bottom bar — remaining + view toggle + end */}
       <div className="absolute bottom-0 left-0 right-0 z-40 bg-gray-900/95 text-white shadow-lg">
-        <div className="max-w-xl mx-auto flex items-center gap-4 px-5 py-4">
+        <div className="max-w-xl mx-auto flex items-center gap-3 px-5 py-4">
           <div className="flex-1">
             <p className="text-lg font-bold">{formatDist(distanceRemainingM)}</p>
             <p className="text-sm text-gray-400">{formatRemaining(secondsRemaining)}{eta ? ` · ${formatEta(eta)}` : ''}</p>
           </div>
+          {/* 2D / 3D view toggle */}
+          <button
+            type="button"
+            onClick={togglePerspective}
+            title={perspectiveView ? 'Switch to top-down view' : 'Switch to perspective view'}
+            className="border border-gray-500 hover:border-gray-300 text-gray-300 hover:text-white text-xs font-bold w-10 h-10 rounded-xl transition-colors flex items-center justify-center"
+          >
+            {perspectiveView ? '2D' : '3D'}
+          </button>
           <button
             type="button"
             onClick={stop}

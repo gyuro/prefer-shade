@@ -7,13 +7,19 @@ export function useWatchPosition(active: boolean): { location: LiveLocation | nu
   const [location, setLocation] = useState<LiveLocation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
+  // Throttle GPS callbacks — pedestrian navigation needs at most 1 update/sec
+  const lastUpdateRef = useRef(0);
 
   useEffect(() => {
-    if (!active) {
+    const clearWatch = () => {
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
       }
+    };
+
+    if (!active) {
+      clearWatch();
       return;
     }
 
@@ -24,6 +30,11 @@ export function useWatchPosition(active: boolean): { location: LiveLocation | nu
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
+        // Drop updates that arrive faster than once per second
+        const now = Date.now();
+        if (now - lastUpdateRef.current < 900) return;
+        lastUpdateRef.current = now;
+
         const h = pos.coords.heading;
         setLocation({
           lat: pos.coords.latitude,
@@ -33,17 +44,17 @@ export function useWatchPosition(active: boolean): { location: LiveLocation | nu
         });
         setError(null);
       },
-      (err) => {
-        setError(err.message);
-      },
-      { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 },
+      (err) => { setError(err.message); },
+      // maximumAge: 2000 — allow reusing a 2-second-old fix to avoid hammering GPS
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 },
     );
 
+    // Ensure cleanup on page refresh/unload (React cleanup may not fire in time)
+    window.addEventListener('beforeunload', clearWatch);
+
     return () => {
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-        watchIdRef.current = null;
-      }
+      clearWatch();
+      window.removeEventListener('beforeunload', clearWatch);
     };
   }, [active]);
 

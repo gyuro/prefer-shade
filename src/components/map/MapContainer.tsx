@@ -122,7 +122,7 @@ interface MapContentProps {
 function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin, destination, userLocation, pickedLocation, onSelectRoute, onLongPress }: MapContentProps) {
   const { current: map } = useMap();
   const [mapBearing, setMapBearing] = useState(0);
-  const { session } = useNavigationContext();
+  const { session, perspectiveView } = useNavigationContext();
   const navActive = session.isActive;
 
   useEffect(() => {
@@ -136,7 +136,8 @@ function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin,
     map?.easeTo({ bearing: 0, duration: 300 });
   }, [map]);
 
-  // During navigation: follow live position with heading-up camera
+  // During navigation: follow live position with heading-up camera.
+  // liveLocation updates are already throttled to ~1 Hz in useWatchPosition.
   const liveLocation = session.liveLocation;
   useEffect(() => {
     if (!map || !navActive || !liveLocation) return;
@@ -144,12 +145,12 @@ function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin,
       center: [liveLocation.lng, liveLocation.lat],
       bearing: liveLocation.heading ?? mapBearing,
       zoom: 17,
-      pitch: 45,
-      duration: 400,
+      pitch: perspectiveView ? 45 : 0,
+      duration: 800,
     });
-  // mapBearing intentionally omitted — only heading from GPS drives this
+  // mapBearing intentionally omitted — only GPS heading drives navigation bearing
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, navActive, liveLocation]);
+  }, [map, navActive, liveLocation, perspectiveView]);
 
   // Track both route polylines so fitBounds re-fires when the shaded route
   // arrives with a different geometry after shadow computation completes.
