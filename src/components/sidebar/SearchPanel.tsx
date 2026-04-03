@@ -251,26 +251,35 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
   const [collapsed, setCollapsed] = useState(false);
   const [stops, setStops] = useState<string[]>([]);
   const destRef = useRef<HTMLInputElement | null>(null);
-  const lastFocusedField = useRef<'origin' | 'destination'>('destination');
+  const lastFocusedField = useRef<'origin' | 'destination' | number>('destination');
 
   const addStop = () => setStops((s) => [...s, '']);
   const removeStop = (i: number) => setStops((s) => s.filter((_, idx) => idx !== i));
   const updateStop = (i: number, v: string) => setStops((s) => s.map((x, idx) => idx === i ? v : x));
 
   // When the map sends a picked coordinate, reverse-geocode it into the best field.
-  // Priority: fill the empty field first (dest preferred), then fall back to
-  // whichever field the user last explicitly focused.
+  // Priority: fill the first empty field (dest > origin > stops), then fall back to
+  // whichever field the user last explicitly focused (including stop index).
   useEffect(() => {
     if (!mapPickCoord) return;
     const destEmpty = !dest.trim();
     const originEmpty = !origin.trim() && origin !== GPS;
-    let field: 'origin' | 'destination';
-    if (destEmpty) field = 'destination';
-    else if (originEmpty) field = 'origin';
-    else field = lastFocusedField.current;
-    const setter = field === 'origin' ? setOrigin : setDest;
-    setter('Locating…');
-    reverseGeocodeLatLng(mapPickCoord.lat, mapPickCoord.lng).then(setter);
+    const emptyStopIdx = stops.findIndex((s) => !s.trim() && s !== GPS);
+
+    let target: 'origin' | 'destination' | number;
+    if (destEmpty) target = 'destination';
+    else if (originEmpty) target = 'origin';
+    else if (emptyStopIdx >= 0) target = emptyStopIdx;
+    else target = lastFocusedField.current;
+
+    if (typeof target === 'number') {
+      updateStop(target, 'Locating…');
+      reverseGeocodeLatLng(mapPickCoord.lat, mapPickCoord.lng).then((addr) => updateStop(target as number, addr));
+    } else {
+      const setter = target === 'origin' ? setOrigin : setDest;
+      setter('Locating…');
+      reverseGeocodeLatLng(mapPickCoord.lat, mapPickCoord.lng).then(setter);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapPickCoord]);
 
@@ -417,6 +426,7 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
                 onChange={(v) => updateStop(i, v)}
                 onGps={() => updateStop(i, GPS)}
                 onClearGps={() => updateStop(i, '')}
+                onFieldFocus={() => { lastFocusedField.current = i; }}
                 placeholder={`Stop ${i + 1}`}
                 hasGps={hasGpsLocation}
                 disabled={isLoading}
@@ -654,6 +664,7 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
                   onChange={(v) => updateStop(i, v)}
                   onGps={() => updateStop(i, GPS)}
                   onClearGps={() => updateStop(i, '')}
+                  onFieldFocus={() => { lastFocusedField.current = i; }}
                   placeholder={`Stop ${i + 1}`}
                   hasGps={hasGpsLocation}
                   disabled={isLoading}
