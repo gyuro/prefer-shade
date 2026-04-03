@@ -113,13 +113,14 @@ interface MapContentProps {
   selectedRoute: 'fastest' | 'shaded';
   origin: LatLng | null;
   destination: LatLng | null;
+  stops?: LatLng[];
   userLocation: LatLng | null;
   pickedLocation?: LatLng | null;
   onSelectRoute: (r: 'fastest' | 'shaded') => void;
   onLongPress?: (coord: LatLng) => void;
 }
 
-function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin, destination, userLocation, pickedLocation, onSelectRoute, onLongPress }: MapContentProps) {
+function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin, destination, stops, userLocation, pickedLocation, onSelectRoute, onLongPress }: MapContentProps) {
   const { current: map } = useMap();
   const [mapBearing, setMapBearing] = useState(0);
   const { session, perspectiveView } = useNavigationContext();
@@ -228,7 +229,7 @@ function MapContent({ shadows, fastestRoute, shadedRoute, selectedRoute, origin,
         )
       )}
 
-      <RouteMarkers origin={origin} destination={destination} userLocation={userLocation} pickedLocation={pickedLocation} />
+      <RouteMarkers origin={origin} destination={destination} stops={stops} userLocation={userLocation} pickedLocation={pickedLocation} />
 
       <CompassButton mapBearing={mapBearing} onReset={resetNorth} />
     </>

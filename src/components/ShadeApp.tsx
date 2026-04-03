@@ -20,6 +20,7 @@ function ShadeAppInner() {
   const { session, start: startNav } = useNavigationContext();
   const [searchOrigin, setSearchOrigin] = useState<LatLng | null>(null);
   const [searchDest, setSearchDest] = useState<LatLng | null>(null);
+  const [searchStops, setSearchStops] = useState<LatLng[]>([]);
   const [mapPickCoord, setMapPickCoord] = useState<LatLng | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -57,6 +58,7 @@ function ShadeAppInner() {
 
         setSearchOrigin(origin);
         setSearchDest(dest);
+        setSearchStops(stops);
         setMapPickCoord(null);
         setSearchWeather(null);
         setSearchWeatherLoading(true);
@@ -78,6 +80,7 @@ function ShadeAppInner() {
     routeSearch.reset();
     setSearchOrigin(null);
     setSearchDest(null);
+    setSearchStops([]);
     setMapPickCoord(null);
     setSearchWeather(null);
     setSearchWeatherLoading(false);
@@ -105,6 +108,7 @@ function ShadeAppInner() {
         selectedRoute={routeSearch.selectedRoute}
         origin={searchOrigin}
         destination={searchDest}
+        stops={searchStops}
         center={center}
         userLocation={location}
         pickedLocation={mapPickCoord}

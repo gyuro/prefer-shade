@@ -11,6 +11,7 @@ interface Props {
   selectedRoute: 'fastest' | 'shaded';
   origin: LatLng | null;
   destination: LatLng | null;
+  stops?: LatLng[];
   center: LatLng;
   userLocation: LatLng | null;
   pickedLocation?: LatLng | null;

@@ -6,6 +6,7 @@ import type { LatLng } from '@/types/route';
 interface Props {
   origin: LatLng | null;
   destination: LatLng | null;
+  stops?: LatLng[];
   userLocation: LatLng | null;
   pickedLocation?: LatLng | null;
 }
@@ -41,6 +42,22 @@ function PickedPin() {
   );
 }
 
+function StopPin({ index }: { index: number }) {
+  return (
+    <svg viewBox="0 0 22 28" width="20" height="26" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M11 1C6.58 1 3 4.58 3 9c0 6 8 18 8 18s8-12 8-18c0-4.42-3.58-8-8-8z"
+        fill="#f97316"
+        stroke="#c2410c"
+        strokeWidth="1.5"
+      />
+      <text x="11" y="13.5" textAnchor="middle" fontSize="8" fontWeight="bold" fill="white" fontFamily="sans-serif">
+        {index + 1}
+      </text>
+    </svg>
+  );
+}
+
 function UserDot() {
   return (
     <div className="relative flex items-center justify-center w-5 h-5">
@@ -52,7 +69,7 @@ function UserDot() {
   );
 }
 
-export function RouteMarkers({ origin, destination, userLocation, pickedLocation }: Props) {
+export function RouteMarkers({ origin, destination, stops, userLocation, pickedLocation }: Props) {
   return (
     <>
       {pickedLocation && (
@@ -70,6 +87,11 @@ export function RouteMarkers({ origin, destination, userLocation, pickedLocation
           <PinIcon color="#22c55e" border="#15803d" />
         </Marker>
       )}
+      {stops?.map((stop, i) => (
+        <Marker key={i} longitude={stop.lng} latitude={stop.lat} anchor="bottom">
+          <StopPin index={i} />
+        </Marker>
+      ))}
       {destination && (
         <Marker longitude={destination.lng} latitude={destination.lat} anchor="bottom">
           <PinIcon color="#ef4444" border="#b91c1c" />
