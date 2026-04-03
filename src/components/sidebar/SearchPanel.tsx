@@ -250,10 +250,11 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [stops, setStops] = useState<string[]>([]);
+  const [focusNewStop, setFocusNewStop] = useState(false);
   const destRef = useRef<HTMLInputElement | null>(null);
   const lastFocusedField = useRef<'origin' | 'destination' | number>('destination');
 
-  const addStop = () => setStops((s) => [...s, '']);
+  const addStop = () => { setFocusNewStop(true); setStops((s) => [...s, '']); };
   const removeStop = (i: number) => setStops((s) => s.filter((_, idx) => idx !== i));
   const updateStop = (i: number, v: string) => setStops((s) => s.map((x, idx) => idx === i ? v : x));
 
@@ -426,10 +427,11 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
                 onChange={(v) => updateStop(i, v)}
                 onGps={() => updateStop(i, GPS)}
                 onClearGps={() => updateStop(i, '')}
-                onFieldFocus={() => { lastFocusedField.current = i; }}
+                onFieldFocus={() => { lastFocusedField.current = i; setFocusNewStop(false); }}
                 placeholder={`Stop ${i + 1}`}
                 hasGps={hasGpsLocation}
                 disabled={isLoading}
+                autoFocus={focusNewStop && i === stops.length - 1}
               />
             </div>
             <button
@@ -664,10 +666,11 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
                   onChange={(v) => updateStop(i, v)}
                   onGps={() => updateStop(i, GPS)}
                   onClearGps={() => updateStop(i, '')}
-                  onFieldFocus={() => { lastFocusedField.current = i; }}
+                  onFieldFocus={() => { lastFocusedField.current = i; setFocusNewStop(false); }}
                   placeholder={`Stop ${i + 1}`}
                   hasGps={hasGpsLocation}
                   disabled={isLoading}
+                  autoFocus={focusNewStop && i === stops.length - 1}
                 />
               </div>
               <button
