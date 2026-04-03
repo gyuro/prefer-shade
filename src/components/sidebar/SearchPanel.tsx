@@ -328,7 +328,7 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
     onSearch(
       origin === GPS ? null : (origin.trim() || null),
       dest === GPS ? null : dest.trim(),
-      stops.map((s) => s.trim()),
+      stops.map((s) => s.trim()).filter(Boolean),
       isNaN(time.getTime()) ? new Date() : time,
       options
     );
@@ -347,8 +347,7 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
 
   const canSearch =
     (dest === GPS || !!dest.trim()) &&
-    (origin === GPS || !!origin.trim() || hasGpsLocation) &&
-    stops.every((s) => !!s.trim());
+    (origin === GPS || !!origin.trim() || hasGpsLocation);
 
   // ── Topbar variant (mobile fixed top bar) ───────────────────────────────
   if (variant === 'topbar') {
