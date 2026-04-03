@@ -15,7 +15,7 @@ import type { WeatherData } from '@/lib/weather/fetchWeather';
 interface Props {
   searchState: RouteSearchState;
   hasGpsLocation: boolean;
-  onSearch: (origin: string | null, destination: string | null, time: Date, options: RouteOptions) => void;
+  onSearch: (origin: string | null, destination: string | null, stops: string[], time: Date, options: RouteOptions) => void;
   onSelectRoute: (which: 'fastest' | 'shaded') => void;
   onReset: () => void;
   onStartNavigation: () => void;

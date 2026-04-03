@@ -55,7 +55,7 @@ async function fetchSuggestions(query: string): Promise<Suggestion[]> {
 interface Props {
   isLoading: boolean;
   hasGpsLocation: boolean;
-  onSearch: (origin: string | null, destination: string | null, time: Date, options: RouteOptions) => void;
+  onSearch: (origin: string | null, destination: string | null, stops: string[], time: Date, options: RouteOptions) => void;
   onReset: () => void;
   hasResult: boolean;
   /**
@@ -249,8 +249,13 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
   const [showOptions, setShowOptions] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [stops, setStops] = useState<string[]>([]);
   const destRef = useRef<HTMLInputElement | null>(null);
   const lastFocusedField = useRef<'origin' | 'destination'>('destination');
+
+  const addStop = () => setStops((s) => [...s, '']);
+  const removeStop = (i: number) => setStops((s) => s.filter((_, idx) => idx !== i));
+  const updateStop = (i: number, v: string) => setStops((s) => s.map((x, idx) => idx === i ? v : x));
 
   // When the map sends a picked coordinate, reverse-geocode it into the best field.
   // Priority: fill the empty field first (dest preferred), then fall back to
@@ -323,6 +328,7 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
     onSearch(
       origin === GPS ? null : (origin.trim() || null),
       dest === GPS ? null : dest.trim(),
+      stops.map((s) => s.trim()),
       isNaN(time.getTime()) ? new Date() : time,
       options
     );
@@ -332,6 +338,7 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
     onReset();
     setOrigin('');
     setDest('');
+    setStops([]);
     setIsNow(true);
     setDateTimeStr(toDateTimeLocal(new Date()));
     setShowTimePicker(false);
@@ -340,7 +347,8 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
 
   const canSearch =
     (dest === GPS || !!dest.trim()) &&
-    (origin === GPS || !!origin.trim() || hasGpsLocation);
+    (origin === GPS || !!origin.trim() || hasGpsLocation) &&
+    stops.every((s) => !!s.trim());
 
   // ── Topbar variant (mobile fixed top bar) ───────────────────────────────
   if (variant === 'topbar') {
@@ -390,7 +398,7 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
           <button
             type="button"
             onClick={handleSwap}
-            disabled={isLoading}
+            disabled={isLoading || stops.length > 0}
             title="Swap origin and destination"
             className="flex-shrink-0 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-30"
           >
@@ -399,6 +407,35 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
             </svg>
           </button>
         </div>
+
+        {/* Intermediate stop rows */}
+        {stops.map((stop, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <LocationField
+                icon="○"
+                value={stop}
+                onChange={(v) => updateStop(i, v)}
+                onGps={() => updateStop(i, GPS)}
+                onClearGps={() => updateStop(i, '')}
+                placeholder={`Stop ${i + 1}`}
+                hasGps={hasGpsLocation}
+                disabled={isLoading}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => removeStop(i)}
+              disabled={isLoading}
+              title="Remove stop"
+              className="flex-shrink-0 p-1.5 text-gray-400 hover:text-red-500 rounded-full transition-colors disabled:opacity-30"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        ))}
 
         {/* Destination row + time toggle + options toggle + submit */}
         <div className="flex gap-1.5">
@@ -546,15 +583,28 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
           <p className="text-xs text-amber-600">GPS unavailable — enter a starting address</p>
         )}
 
-        {hasResult && (
+        <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={handleClear}
-            className="text-xs text-gray-400 hover:text-gray-600 self-start"
+            onClick={addStop}
+            disabled={isLoading}
+            className="text-xs text-blue-600 hover:text-blue-700 disabled:opacity-40 flex items-center gap-0.5"
           >
-            ✕ Clear route
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Add stop
           </button>
-        )}
+          {hasResult && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="text-xs text-gray-400 hover:text-gray-600"
+            >
+              ✕ Clear route
+            </button>
+          )}
+        </div>
       </form>
     );
   }
@@ -576,21 +626,57 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
           disabled={isLoading}
         />
 
-        {/* Connector line + swap button */}
+        {/* Connector line + swap button (swap hidden when stops present) */}
         <div className="flex items-center py-0.5 pl-2.5">
           <div className="w-px h-4 bg-gray-200 flex-shrink-0" />
-          <button
-            type="button"
-            onClick={handleSwap}
-            disabled={isLoading || (!origin && !dest)}
-            title="Swap origin and destination"
-            className="ml-auto p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-30"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" />
-            </svg>
-          </button>
+          {stops.length === 0 && (
+            <button
+              type="button"
+              onClick={handleSwap}
+              disabled={isLoading || (!origin && !dest)}
+              title="Swap origin and destination"
+              className="ml-auto p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-30"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" />
+              </svg>
+            </button>
+          )}
         </div>
+
+        {/* Intermediate stops */}
+        {stops.map((stop, i) => (
+          <div key={i}>
+            <div className="flex items-center gap-1">
+              <div className="flex-1 min-w-0">
+                <LocationField
+                  icon="○"
+                  value={stop}
+                  onChange={(v) => updateStop(i, v)}
+                  onGps={() => updateStop(i, GPS)}
+                  onClearGps={() => updateStop(i, '')}
+                  placeholder={`Stop ${i + 1}`}
+                  hasGps={hasGpsLocation}
+                  disabled={isLoading}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => removeStop(i)}
+                disabled={isLoading}
+                title="Remove stop"
+                className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500 rounded-full transition-colors disabled:opacity-30"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="py-0.5 pl-2.5">
+              <div className="w-px h-4 bg-gray-200" />
+            </div>
+          </div>
+        ))}
 
         <LocationField
           icon="🔴"
@@ -605,6 +691,19 @@ export function SearchPanel({ isLoading, hasGpsLocation, onSearch, onReset, hasR
           autoFocus
           inputRef={destRef}
         />
+
+        {/* Add stop button */}
+        <button
+          type="button"
+          onClick={addStop}
+          disabled={isLoading}
+          className="mt-1.5 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 disabled:opacity-40 self-start"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Add stop
+        </button>
       </div>
 
       {!hasGpsLocation && origin !== GPS && !origin.trim() && (

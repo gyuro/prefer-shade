@@ -62,17 +62,23 @@ export function useRouteSearch() {
     time?: Date,
     options: RouteOptions = ROUTE_PRESETS.balanced,
     weather?: WeatherData | null,
+    stops?: LatLng[],
   ) => {
+    const userStops = stops ?? [];
     stopTimer();
     setState((s) => ({ ...s, status: 'routing', fastestRoute: null, shadedRoute: null, shadows: [], error: null, shadowPercent: null }));
 
     try {
       // Start building fetch immediately (parallel with route fetch)
-      const roughBbox = expandBbox(pointsBbox([origin, destination]), 500);
+      const roughBbox = expandBbox(pointsBbox([origin, destination, ...userStops]), 500);
       const buildingsPromise = fetchBuildings(roughBbox);
 
       // ── Routes first (fast) ────────────────────────────────────────────────
-      const candidates = await fetchRoutes({ origin, destination });
+      const candidates = await fetchRoutes({
+        origin,
+        destination,
+        intermediates: userStops.length > 0 ? userStops : undefined,
+      });
       if (candidates.length === 0) throw new Error('No routes found between these locations.');
 
       const fastest = candidates[0];
@@ -143,6 +149,11 @@ export function useRouteSearch() {
       setTimeout(() => setState((s) => s.status === 'done' ? { ...s, shadowPercent: null } : s), 700);
 
       if (weather?.shadeRelevance === 'none') return;
+
+      // Skip shadow waypoint optimisation when user already defined fixed stops —
+      // the route is already constrained, and re-routing through additional
+      // shade waypoints could violate the user's intended path.
+      if (userStops.length > 0) return;
 
       // ── Waypoint optimisation (silent background refinement) ──────────────
       const waypoints = optimizeWaypoints(fastest.encodedPolyline, index);

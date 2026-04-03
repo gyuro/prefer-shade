@@ -42,14 +42,18 @@ function ShadeAppInner() {
   }, []);
 
   const handleSearch = useCallback(
-    async (originText: string | null, destinationText: string | null, time: Date, options: RouteOptions) => {
+    async (originText: string | null, destinationText: string | null, stopTexts: string[], time: Date, options: RouteOptions) => {
       try {
-        const [origin, dest] = await Promise.all([
+        const [origin, dest, ...resolvedStops] = await Promise.all([
           originText ? geocodeAddress(originText) : Promise.resolve(location),
           destinationText ? geocodeAddress(destinationText) : Promise.resolve(location),
+          ...stopTexts.map((s) => geocodeAddress(s)),
         ]);
         if (!origin) throw new Error('Could not determine your starting location.');
         if (!dest) throw new Error('Could not determine your destination.');
+        const nullStop = resolvedStops.findIndex((s) => !s);
+        if (nullStop >= 0) throw new Error(`Could not find stop ${nullStop + 1}. Try a more specific address.`);
+        const stops = resolvedStops as NonNullable<typeof resolvedStops[number]>[];
 
         setSearchOrigin(origin);
         setSearchDest(dest);
@@ -61,7 +65,7 @@ function ShadeAppInner() {
         setSearchWeather(freshWeather);
         setSearchWeatherLoading(false);
 
-        await routeSearch.search(origin, dest, time, options, freshWeather);
+        await routeSearch.search(origin, dest, time, options, freshWeather, stops);
       } catch (err) {
         setSearchWeatherLoading(false);
         routeSearch.setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
